@@ -1,0 +1,4 @@
+repo_root	.aris/vendor/aris
+source_commit	c824602097ce939c52a151da7d7c1e24fc7021a4
+package	skills-codex
+count	87

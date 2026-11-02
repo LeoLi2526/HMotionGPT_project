@@ -1,0 +1,19 @@
+# 复制为 host.local.yaml 后填写；此模板不代表设备已连接或可读。
+host_label: replace-with-local-host-name
+project_path: replace-with-absolute-path-on-this-host
+devices:
+  ring:
+    connection: unknown  # e.g. USB serial, BLE, vendor export
+    locator: unknown     # e.g. local device node or export directory
+    read_access_checked: false
+  armband:
+    connection: unknown
+    locator: unknown
+    read_access_checked: false
+  camera:
+    connection: unknown
+    locator: unknown
+    read_access_checked: false
+robot:
+  interface: unknown
+  motion_authorized: false

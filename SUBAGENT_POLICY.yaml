@@ -1,0 +1,83 @@
+# 项目级 subagent 调用与模型档位。主目标始终以 PROJECT_GOAL.yaml 为准。
+schema_version: 1
+revision: 1
+updated_on: 2026-11-02
+
+delegation:
+  autonomous: true
+  coordinator: 主 agent 负责目标对齐、任务拆分、冲突处理、最终结论和用户汇报
+  usual_parallel_limit: 2
+  absolute_parallel_limit: 3
+  third_agent_condition: 第三项任务确实独立，且不争用同一文件、设备或实验资源
+  nested_agents_count_toward_limit: true
+  prefer_when:
+    - 需要独立判断：查新、方法批评、实验完整性审计、结果主张核验
+    - 可以并行且互不依赖：不同设备协议、不同文献线索、不同数据格式核查
+    - 有明确交付物的专门任务：模型方案、数据管线、实验设计或实现
+  avoid_when:
+    - 简单问答或短小的确定性核对
+    - 上一步结果尚未确定，必须串行决策
+    - 多个 agent 会同时修改同一文件或争用同一设备
+
+model_tiers:
+  strong:
+    default_model: gpt-6-astra
+    default_reasoning: high
+    independent_review_reasoning: xhigh
+    use_for: 查新结论、方法取舍、实验有效性审计、统计协议、论文主张及关键风险判断
+  workhorse:
+    default_model: gpt-6.1-sol
+    default_reasoning: medium
+    use_for: 方案整合、代码实现、数据管线和常规调试
+  light:
+    default_model: gpt-6-luna
+    default_reasoning: low
+    use_for: 文件盘点、参数摘录、格式检查和可直接核对的整理工作
+  availability_rule: 型号或档位不可用时选同能力级别的可用替代，记录实际模型和推理档位；不静默降级关键审阅
+  skill_rule: 已调用 skill 对 reviewer 模型、上下文或追踪有明确要求时，遵循该 skill 并记录实际执行路径
+
+task_contract:
+  required_fields:
+    - 对应 PROJECT_GOAL.yaml 的目标或当前阻塞项
+    - 具体问题与可验收交付物
+    - 输入文件或需核查的来源
+    - 可修改的文件范围与唯一写入负责人
+    - 证据、失败和不确定项的返回格式
+    - 停止条件与资源边界
+  canonical_files_owned_by_coordinator:
+    - PROJECT_GOAL.yaml
+    - AGENTS.md
+    - SUBAGENT_POLICY.yaml
+    - refine-logs/EXPERIMENT_PLAN.md
+    - refine-logs/EXPERIMENT_TRACKER.md
+  reviewer_mode: 独立审阅优先使用新上下文，直接读取原始材料，先给证据和反例再给结论；同一模型家族审阅须标为同家族的暂定独立意见
+  writing_rule: 同一时间一个文件只有一个写入负责人；其他 agent 提交证据或建议，由负责人整合
+
+escalation:
+  light_to_strong_when:
+    - 来源、实验记录或指标相互矛盾且影响结论
+    - 需要从资料摘录转为研究判断或方法取舍
+    - 连续尝试仍无法解决阻塞
+    - 结论会改变主目标、实验协议或对外主张
+  coordinator_action: 核对冲突证据，必要时重分工或追加独立审阅；不把任一 subagent 的结论直接当成实测事实
+  stop_when:
+    - 已交付并有可核验证据
+    - 缺关键输入或工具，继续工作无法产生有效证据
+    - 深入方向与主目标的关系变弱或预期收益不明
+
+reporting:
+  required_fields:
+    - 实际模型、推理档位和使用的 skills
+    - 完成、未完成、阻塞、失败的状态
+    - 原始来源、文件修改、关键证据和可复核路径
+    - 不确定项、分歧、升级原因及对主目标的影响
+  coordinator_responsibility: 主 agent 核验交付物与证据后再对用户报告，保留失败记录，不把尚在运行的结果写成最终结果
+
+boundaries:
+  inherit: subagent 遵守 AGENTS.md、PROJECT_GOAL.yaml、适用 skill 及任务授权边界
+  external_actions: 对外发送未公开数据、通知他人、发布成果或产生未约定费用前确认边界
+  robot_actions: 真实机器人运动或控制需先确认设备与安全边界
+
+change_rule:
+  versioning: 重大变更前将旧版复制到 policy-history/，新版 revision 加 1
+  reporting: 说明改变的触发条件、模型档位、并发规则及其对现有任务的影响

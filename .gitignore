@@ -1,0 +1,52 @@
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*token*.txt
+*credentials*.json
+
+# Generated data, training outputs, and local caches
+# Keep publisher paper copies in the local knowledge base; Git stores the source index.
+knowledge_base/*.pdf
+meetings/**/*.pdf
+data/
+raw_data/
+datasets/
+recordings/
+episodes/
+runs/
+outputs/
+checkpoints/
+wandb/
+logs/
+*.mp4
+*.mov
+*.mkv
+*.bag
+*.mcap
+*.npy
+*.npz
+*.h5
+*.hdf5
+*.parquet
+*.jsonl
+*.ckpt
+*.pth
+*.pt
+*.safetensors
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+.DS_Store
+
+# ARIS generated traces and local service configuration
+.aris/traces/
+.aris/reviewer.json
+
+# Machine-specific device connection details
+config/host.local.yaml

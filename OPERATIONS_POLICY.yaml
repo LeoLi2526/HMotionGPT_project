@@ -1,0 +1,52 @@
+# 项目执行规则；研究目标见 PROJECT_GOAL.yaml，subagent 配置见 SUBAGENT_POLICY.yaml。
+schema_version: 1
+revision: 1
+updated_on: 2026-11-02
+
+evidence:
+  vendor_parameters: 厂商参数是合法的设备选型和实验材料，记录型号、来源、版本与标称条件
+  measured_parameters: 项目设备的实际采样、同步、续航和性能另记原始文件、脚本、时间与环境
+  reporting_rule: 标称值与实测值都可使用；表述中标明来源，避免将两者混写
+  research_results: 机器人 VLA 效果以机器人闭环任务记录为依据；离线代理任务单独报告
+
+human_data:
+  user_statement: 用户确认当前数据使用已获同意；本阶段无需脱敏
+  deidentification_required_now: false
+  processing_scope: 当前项目的采集、标注、训练与分析，可使用已有可用工具和云端算力
+  provenance: 记录每批数据的同意范围、采集设备、存储位置和处理版本
+  public_release: 用户已授权公开本项目的规范、方案和代码；人类原始数据、内部会议原件与论文素材不随仓库公开
+
+compute:
+  policy: 可使用全部可用算力，但不得打扰其他用户的任务
+  before_run:
+    - 查看当前资源占用和已有作业，选择空闲容量
+    - 记录任务的设备、配置、输入版本与日志位置
+  during_run:
+    - 不抢占、终止或修改其他用户的任务
+    - 若产生资源竞争，降低占用、排队或暂停本项目作业，并记录原因
+  spending: 已有授权资源可自主使用；产生未约定费用前确认边界
+
+equipment_failure:
+  agent_action: 自主排查可解决的接口、配置与采集问题，保留错误和尝试记录
+  stop_condition: 设备问题无法由 agent 解决时停止受影响节点，说明已排查内容并向用户询问必要信息或现场协助
+  independent_work: 不依赖该设备的文献、代码或方案工作可继续
+  robot_motion: 真实机器人运动和控制仍需明确设备与安全边界
+
+milestone_reporting:
+  roadmap: ROADMAP.md
+  events:
+    - 某节点已准备开始时，报告目标、所需资源、通过条件和当前阻塞
+    - 某节点通过时，报告原始证据、指标、失败记录及下一节点
+    - 某节点失败或阻塞时，报告原因、已尝试的修复和可继续的独立工作
+  reporting_is_approval_gate: false
+  status_vocabulary: [TODO, READY, RUNNING, PASSED, FAILED, BLOCKED]
+
+git:
+  local_repository: true
+  remote_visibility: public
+  intended_owner: LeoLi2526
+  commit_policy: agent 在每个可复核的方案、代码或节点结果完成后自主提交，提交信息说明实际变更
+  push_policy: agent 在提交后自主推送到公开 GitHub，并核对本地与远端提交一致
+  tracked_content: 可公开的项目规范、方案、代码和小型证据索引
+  excluded_content: 凭据、缓存、临时文件、内部会议原件、外部论文 PDF 副本、原始大规模人类视频/传感数据与大型模型权重；这些材料在获准位置保存并由清单追溯
+  failure_rule: 无法创建或推送公开仓库时保留本地提交，记录具体阻塞，不把本地提交说成已上传

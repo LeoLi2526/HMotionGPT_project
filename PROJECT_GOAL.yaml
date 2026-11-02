@@ -1,0 +1,70 @@
+# 项目目标的唯一参数入口。重大方向变更先改此文件，再同步下游方案。
+schema_version: 1
+revision: 1
+updated_on: 2026-11-02
+source:
+  - 用户明确的低成本日常佩戴 EGO 数采、用于机器人 VLA 训练的目标
+  - meetings/2026-11-02-kickoff/README.md（公开版任务摘要；原始纪要在私有存档）
+
+north_star:
+  application: robot_vla_training
+  deliverable: 低负担、可日常佩戴的人类第一视角操作数据采集平台
+  research_question: 三模态人类操作示范能否以可接受的采集成本，改善机器人 VLA 的真实操作学习？
+  desired_outcome: 在固定机器人示范量与训练预算下，提高机器人闭环任务成功率或示范效率
+  evidence_status: 目标与假设，尚无本项目机器人实验结论
+
+data_path:
+  source: 人类日常手物操作
+  modalities:
+    ring:
+      signal: 手指运动 IMU
+      device: 实验室现有戒指
+      hardware_status: 型号、原始输出和时钟待核实
+    armband:
+      signal: 前臂 8 通道 EMG
+      auxiliary_signal: 前臂 6 轴惯性
+      device: 思知瑞肌电臂环，实物版本待核实
+      hardware_status: 厂商参数已整理，原始导出与时间戳待实测
+    camera:
+      signal: 第一视角 RGB 视频
+      device: DJI Osmo Nano
+      selection_status: 一期暂定，实机型号和佩戴效果待核实
+  intermediate_product: 带原始流、时间映射、任务/事件标签、质量标记及来源的可重放 episode
+  robot_action_supervision: 机器人自身轨迹、经验证的遥操作或经验证的跨本体映射
+
+current_phase:
+  name: 设备联调与小规模试采
+  objective: 验证三流可导出、可同步、可重放，并能进入机器人 VLA 数据管线
+  planned_evidence:
+    - 三设备的原始样本、时间戳和失败日志
+    - 至少 10 条完整三流 episode 的试采记录
+    - 机器人及两项可复位任务的动作接口和示范来源
+    - 成本、佩戴负担、数据可用率和同步误差的实测
+  planning_status: 未完成；样本量、质量门槛和排期需试采后冻结
+
+final_evaluation:
+  primary_metric: 真实机器人闭环任务成功数/试次数及其置信区间
+  secondary_metrics:
+    - 固定成功率所需的机器人示范量
+    - 每有效示范小时的设备和人工成本
+    - 同步误差、可用 episode 比例、佩戴负担及跨物体/场景表现
+  required_comparisons:
+    - Robot-only
+    - Robot + 人类 EGO-RGB
+    - Robot + EGO-RGB + 戒指
+    - Robot + EGO-RGB + 前臂 EMG
+    - Robot + EGO-RGB + 戒指 + 前臂 EMG
+  fairness_controls:
+    - 固定机器人示范量和人类 episode 集合
+    - 固定视觉主干、训练预算与测试任务
+
+method_hypotheses:
+  continuous_fusion: 独立编码器、时间窗口对齐、注意力融合是连续特征基线
+  tokenization: HMotionGPT 式人类运动/肌电 token 化需与同预算连续融合比较
+  token_status: 待检验；仅离线识别提高不足以成立为 VLA 贡献
+
+change_rule:
+  authority: 用户可以纠正或变更目标；agent 可自主优化实现路线和技能选择
+  versioning: 每次重大变更前将旧版复制到 goal-history/，新版 revision 加 1
+  sequence: 重大目标变更先修改本文件，再核对 AGENTS.md、实验方案、执行表和设备知识库
+  reporting: 说明修改的字段、原因、受影响实验和仍未验证的主张
