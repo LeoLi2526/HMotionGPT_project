@@ -17,7 +17,7 @@
 
 ## 新主机接力顺序
 
-1. 按 [跨设备指南](./docs/CROSS_DEVICE.md)连接现有主机、使用 Hand off，或克隆公开仓库；先运行 `python3 scripts/check_portability.py`。
+1. 按 [跨设备指南](./docs/CROSS_DEVICE.md)连接现有主机、使用 Hand off，或克隆公开仓库；先运行 `python3 scripts/check_portability.py`，验证普通目录形式的技能副本。
 2. 读取 `AGENTS.md`、`PROJECT_GOAL.yaml`、`ROADMAP.md` 和本文件，核对当前 Git 分支与远端提交。
 3. 在目标主机填写被 Git 忽略的 `config/host.local.yaml`，依据实际设备权限执行 N1 检查；记录原始文件、配置、失败日志与来源。
 4. 节点准备开始、通过或阻塞时向用户汇报；随后更新本文件并提交、推送可共享的进展。

@@ -18,7 +18,7 @@
 
 ### 不接外设的最小转移测试
 
-1. 在两台电脑上使用同一 ChatGPT 账号和 workspace；目标电脑取得本公开仓库，并在 Codex 中保存为项目。先运行 `python3 scripts/check_portability.py`，确认相对技能链接可用。
+1. 在两台电脑上使用同一 ChatGPT 账号和 workspace；目标电脑取得本公开仓库，并在 Codex 中保存为项目。先运行 `python3 scripts/check_portability.py`，确认项目技能副本可用。
 2. 在桌面应用的 **Settings → Connections** 中连接目标主机。若目标电脑提供受支持的远程控制入口，按配对流程连接；若它作为 SSH 主机，按上文的 SSH 步骤连接。看不到入口时先核对应用版本、平台和账号可用性，不要假定同账号就会自动出现另一台电脑。
 3. 在原主机的项目中创建一个单独的“跨设备接力测试”聊天，让它读取 `PROJECT_HANDOFF.md` 并报告 `hostname`、`git rev-parse --short HEAD`。这样不用移动主要研究聊天。
 4. 在测试聊天底部选择运行位置 → 目标主机 → **Hand off**。在目标电脑打开同一测试聊天，再让 agent 报告 `hostname`、当前项目路径和 Git 提交，并复述 N1 的状态。
@@ -36,7 +36,7 @@ cd HMotionGPT_project
 python3 scripts/check_portability.py
 ```
 
-在 Codex 中打开克隆的项目，并让新聊天从 `PROJECT_HANDOFF.md`、`AGENTS.md`、`PROJECT_GOAL.yaml` 与 `ROADMAP.md` 接续。新聊天能继承**已提交的项目状态**，但不是原聊天的完整上下文；需要完整对话接续时使用方式 A 或 B。Windows 检出时需要 Git 正确创建符号链接，否则本项目的 `.agents/skills/` 入口会失效；检查脚本会明确报出这种情况。
+在 Codex 中打开克隆的项目，并让新聊天从 `PROJECT_HANDOFF.md`、`AGENTS.md`、`PROJECT_GOAL.yaml` 与 `ROADMAP.md` 接续。新聊天能继承**已提交的项目状态**，但不是原聊天的完整上下文；需要完整对话接续时使用方式 A 或 B。项目级技能和工具现在以普通目录保存，Windows 检出不依赖 Git 的符号链接功能。
 
 ## 设备所在主机的准备
 
