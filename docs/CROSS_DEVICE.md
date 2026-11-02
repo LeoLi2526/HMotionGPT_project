@@ -16,6 +16,12 @@
 
 官方步骤：[连接 SSH 主机与 Hand off](https://learn.chatgpt.com/docs/remote-connections#connect-to-an-ssh-host)。
 
+### 当前聊天的 Hand off 限制（2026-11-03 实测）
+
+从 Linux `amax` 将本项目研究聊天 Hand off 到 Windows `DESKTOP-5QG35AD` 时，Codex 在 `prepare-host-transfer` 阶段返回“分页聊天目前还不能在另一台主机上继续”；文件传输和主机切换未开始。反向迁移测试聊天也返回相同错误。OpenAI 的 [App Server 文档](https://learn.chatgpt.com/docs/app-server)说明新建持久聊天默认使用分页历史，但目前未提供将现有分页聊天转换为可跨主机 Hand off 聊天的正式步骤。不要把重试标记理解为已解决。
+
+若只需在 Windows 上继续讨论，打开原有 Linux 远端聊天即可，命令仍在 Linux 执行。若需访问 Windows 本地外设，使用下方“方式 C”在 Windows 项目中接续已提交的项目状态；新聊天不继承原聊天的完整历史。
+
 ### 不接外设的最小转移测试
 
 1. 在两台电脑上使用同一 ChatGPT 账号和 workspace；目标电脑取得本公开仓库，并在 Codex 中保存为项目。先运行 `python3 scripts/check_portability.py`，确认项目技能副本可用。
@@ -45,4 +51,4 @@ python3 scripts/check_portability.py
 3. 对未知设备先做只读盘点和静止样本采集，保留固件/软件版本、时间戳、配置与失败日志。遇到 agent 无法解决的设备问题，停止受影响节点并向用户询问。
 4. 仅上传可公开的规范、代码和必要的小型索引。内部会议原件、论文 PDF、大型原始数据和模型权重按各自主机的存储清单迁移；不要把本机绝对路径写成通用路径。
 
-**已验证范围**：本仓库的文件与相对技能链接可在干净的 Git 克隆中检查。目标电脑的 Codex 远程连接、聊天 Hand off 和实际外设访问，必须在目标电脑接入后分别验证。
+**已验证范围**：Linux 项目便携性检查通过。Windows 项目已克隆到 `C:\Users\LeoLi\Downloads\HMotionGPT_project`，2026-11-03 检查发现技能副本仅存在 CRLF/LF 换行差异，检查脚本已改为对 UTF-8 文本按统一换行比较，仍需在 Windows 拉取新版脚本后复测。聊天 Hand off 实测失败；实际外设访问尚未测试。

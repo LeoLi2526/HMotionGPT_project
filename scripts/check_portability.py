@@ -22,14 +22,21 @@ REQUIRED = (
 
 
 def file_tree(directory):
-    """Map relative file paths to hashes without following directory links."""
+    """Map files to hashes, ignoring checkout-specific text line endings."""
     result = {}
     for path in directory.rglob("*"):
         if path.is_symlink():
             raise ValueError("symbolic link: " + str(path.relative_to(directory)))
         if path.is_file():
             relative = path.relative_to(directory).as_posix()
-            result[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+            data = path.read_bytes()
+            try:
+                data.decode("utf-8")
+            except UnicodeDecodeError:
+                pass
+            else:
+                data = data.replace(b"\r\n", b"\n")
+            result[relative] = hashlib.sha256(data).hexdigest()
     return result
 
 
