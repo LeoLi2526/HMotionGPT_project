@@ -11,6 +11,10 @@
 # Keep publisher paper copies in the local knowledge base; Git stores the source index.
 knowledge_base/*.pdf
 meetings/**/*.pdf
+refine-logs/EXPERIMENT_PLAN_*.md
+refine-logs/EXPERIMENT_TRACKER_*.md
+goal-history/
+policy-history/
 data/
 raw_data/
 datasets/
