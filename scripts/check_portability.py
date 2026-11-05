@@ -18,6 +18,7 @@ REQUIRED = (
     "PROJECT_HANDOFF.md",
     ".aris/vendor/aris/LICENSE",
     ".aris/installed-skill-names.txt",
+    ".aris/installed-skills-codex.txt",
     "knowledge_base/PAPER_SOURCES.md",
 )
 
@@ -26,6 +27,8 @@ def file_tree(directory):
     """Map files to hashes, ignoring checkout-specific text line endings."""
     result = {}
     for path in directory.rglob("*"):
+        if "__pycache__" in path.parts or path.suffix in {".pyc", ".pyo"}:
+            continue
         if path.is_symlink():
             raise ValueError("symbolic link: " + str(path.relative_to(directory)))
         if path.is_file():
@@ -51,6 +54,23 @@ def main():
     source_dir = ROOT / ".aris/vendor/aris/skills/skills-codex"
     names_file = ROOT / ".aris/installed-skill-names.txt"
     names = names_file.read_text().splitlines() if names_file.is_file() else []
+    manifest = ROOT / ".aris/installed-skills-codex.txt"
+    if manifest.is_file():
+        entries = {}
+        for line in manifest.read_text(encoding="utf-8").splitlines():
+            parts = line.split("\t", 1)
+            if len(parts) != 2 or parts[0] in entries:
+                errors.append("invalid Codex skill manifest entry: " + line)
+                continue
+            entries[parts[0]] = parts[1]
+        if entries.get("repo_root") != ".aris/vendor/aris":
+            errors.append("Codex skill manifest must resolve the pinned vendor directory")
+        if entries.get("package") != "skills-codex" or entries.get("count") != "87":
+            errors.append("Codex skill manifest package or count is incorrect")
+        if not re.fullmatch(r"[0-9a-f]{40}", entries.get("source_commit", "")):
+            errors.append("Codex skill manifest source_commit is invalid")
+    if (ROOT / ".aris/installed-skills.txt").exists():
+        errors.append("legacy skill manifest name may hide the Codex helper resolver")
     expected = set(names + ["shared-references"])
     actual = set(path.name for path in skill_dir.iterdir()) if skill_dir.is_dir() else set()
     if len(names) != 87 or len(set(names)) != 87:

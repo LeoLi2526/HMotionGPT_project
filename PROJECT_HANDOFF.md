@@ -16,11 +16,15 @@
 - 两篇论文的来源索引在 [PAPER_SOURCES.md](./knowledge_base/PAPER_SOURCES.md)；论文 PDF 只在已有主机的本地知识库，不随 Git 同步。大型原始数据、模型权重与本机设备路径同样不随 Git 同步。
 - 2026-11-05 已将用户提供的两篇论文 PDF 放入当前 Linux 主机的被忽略知识库，并补齐 ARIS 技能搬移后所需的共享说明相对路径。`scripts/check_portability.py` 会检查这些目录及技能内部链接；其他主机仍须单独取得 PDF。
 - 2026-11-05 当前 Linux 主机完成 N1 的只读接口盘点：未识别项目戒指、前臂肌电臂环或 Osmo Nano；可见的摄像设备是主机内置相机，不作为项目相机实测。尚无三设备原始导出样例或机器人动作接口。本机已创建被忽略的 `config/host.local.yaml`，目标设备的读取状态仍为 `false`；N1 保持 `READY`。
+- 2026-11-05 Windows 项目副本接续：本地 `main` 与远端 `main` 均为 `9c40aa5`；`git` 的默认 Schannel 查询报证书链错误，单次选择 OpenSSL 后可读取远端。ARIS 固定版本的 87 个技能及共享目录通过便携性检查；将误命名的清单改为 Codex 版文件名，并在检查脚本中验证。两篇用户提供的 PDF 已按索引校验并存入本机被忽略的知识库。
+- 本次接力修复已保存为本地提交；Git 向 GitHub 上传时连接被重置，远端最后核对仍为 `9c40aa5`。恢复网络后需推送并核对远端提交；不要将本地提交当作已上传。
+- 本 Windows 主机的只读设备列表未显示可明确识别的项目戒指、前臂肌电臂环或 Osmo Nano；有 4 个通用蓝牙串口但未能归属设备。已创建被忽略的 `config/host.local.yaml`，三设备读取状态均为 `false`。未取得原始流、时钟或机器人动作接口；N1 仍为 `READY`。
+- 2026-11-05 已依据厂商教程与用户给的两个压缩包准备思知瑞臂环采集入口，见[连接与采集说明](./docs/SICHIRAY_CAPTURE.md)。两包上位机主程序相同；旧 EEG/EMG 脚本的 115200 波特率与 8 整数文本流只是候选配置，不等于厂商 HEX 帧已验证。本机安装了隔离的串口依赖、解出了上位机，并离线验证原始字节和主机读取时间的保存。尚未启动上位机或连接臂环；N1/R001 仍需实物、端口确认、原始样本及时间戳核验。
 - 真实设备测试先确认目标主机能访问设备，再做只读接口盘点和静止采样；机器人运动或控制另行明确安全边界。
 
 ## 新主机接力顺序
 
-1. 按 [跨设备指南](./docs/CROSS_DEVICE.md)接续。2026-11-03 从 Linux 到 Windows 的聊天 Hand off 被“分页聊天”限制阻断；需要 Windows 本地外设时，先在 Windows 克隆仓库或更新已有副本，并运行 `python3 scripts/check_portability.py`。
+1. 按 [跨设备指南](./docs/CROSS_DEVICE.md)接续。2026-11-03 从 Linux 到 Windows 的聊天 Hand off 被“分页聊天”限制阻断；需要 Windows 本地外设时，在 Windows 更新已有副本并运行 `python scripts/check_portability.py`。当前仓库可接续项目文件状态，但聊天历史仍不随 Git 转移。
 2. 读取 `AGENTS.md`、`PROJECT_GOAL.yaml`、`ROADMAP.md` 和本文件，核对当前 Git 分支与远端提交。
 3. 在目标主机填写被 Git 忽略的 `config/host.local.yaml`，依据实际设备权限执行 N1 检查；记录原始文件、配置、失败日志与来源。
 4. 节点准备开始、通过或阻塞时向用户汇报；随后更新本文件并提交、推送可共享的进展。

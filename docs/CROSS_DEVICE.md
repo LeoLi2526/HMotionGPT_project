@@ -51,4 +51,4 @@ python3 scripts/check_portability.py
 3. 对未知设备先做只读盘点和静止样本采集，保留固件/软件版本、时间戳、配置与失败日志。遇到 agent 无法解决的设备问题，停止受影响节点并向用户询问。
 4. 仅上传可公开的规范、代码和必要的小型索引。内部会议原件、论文 PDF、大型原始数据和模型权重按各自主机的存储清单迁移；不要把本机绝对路径写成通用路径。
 
-**已验证范围**：Linux 项目便携性检查通过。Windows 项目已克隆到 `C:\Users\LeoLi\Downloads\HMotionGPT_project`；2026-11-03 更新到 `a28e1ba` 后，88 个技能目录的便携性检查通过，工作区干净。聊天 Hand off 实测失败；实际外设访问尚未测试。
+**已验证范围**：Linux 项目便携性检查通过。2026-11-03 旧 Windows 副本更新到 `a28e1ba` 时通过检查。2026-11-05 当前 Windows 项目 `main` 与远端同为 `9c40aa5`；修正 Codex 技能清单名称后，88 个目录通过便携性检查。当前主机没有可明确识别的目标外设或原始数据，聊天 Hand off 仍只有 2026-11-03 的失败记录。Windows PowerShell 中运行检查使用 `python scripts/check_portability.py`；ARIS 辅助脚本可先设置 `$env:ARIS_REPO=(Resolve-Path .aris/vendor/aris).Path`。
