@@ -1,10 +1,11 @@
 # 项目目标的唯一参数入口。重大方向变更先改此文件，再同步下游方案。
 schema_version: 1
-revision: 1
-updated_on: 2026-11-02
+revision: 2
+updated_on: 2026-11-05
 source:
   - 用户明确的低成本日常佩戴 EGO 数采、用于机器人 VLA 训练的目标
   - meetings/2026-11-02-kickoff/README.md（公开版任务摘要；原始纪要在私有存档）
+  - 用户明确被试者已签署知情同意书，佩戴三设备并接入统一采集平台记录和存储数据的工作流
 
 north_star:
   application: robot_vla_training
@@ -15,6 +16,7 @@ north_star:
 
 data_path:
   source: 人类日常手物操作
+  collection_workflow: 已签署知情同意书的被试者佩戴相机、戒指和前臂肌电臂环；采集平台管理会话、接入或导入设备原始流并保存证据
   modalities:
     ring:
       signal: 手指运动 IMU
@@ -37,6 +39,7 @@ current_phase:
   objective: 验证三流可导出、可同步、可重放，并能进入机器人 VLA 数据管线
   planned_evidence:
     - 三设备的原始样本、时间戳和失败日志
+    - 采集平台的会话元数据、设备接入或导入记录、原始文件校验与重放记录
     - 至少 10 条完整三流 episode 的试采记录
     - 机器人及两项可复位任务的动作接口和示范来源
     - 成本、佩戴负担、数据可用率和同步误差的实测
