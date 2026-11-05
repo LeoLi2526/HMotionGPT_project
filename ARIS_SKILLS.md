@@ -16,6 +16,7 @@
 ## 目录与依赖
 
 - `.agents/skills/`：87 个技能入口及 `shared-references`，均为普通目录副本；Windows 检出无需符号链接权限。
+- `.agents/shared-references/` 与 `skills/shared-references/`：固定上游主技能包中 8 份所需共享说明的普通目录副本。Codex 技能移入 `.agents/skills/` 后，原文中指向主技能包的相对链接仍依赖这两个层级；它们使链接在本项目中保持有效，且不改变固定上游的技能原文。
 - `.aris/vendor/aris/`：项目内固定版本的技能原文、脚本、模板、资源和可选 MCP 服务代码。
 - `.aris/tools/`：固定版本脚本目录的普通副本；`.aris/installed-skills.txt` 记录项目级来源。
 
@@ -25,4 +26,4 @@
 
 ## 更新
 
-当前版本已固定。更新时先在临时目录获取新的上游提交，比对 `.aris/vendor/aris/`、`.agents/skills/` 和 `.aris/tools/`，检查许可证、脚本与技能变更，再同步副本、更新版本记录并运行 `python3 scripts/check_portability.py`。不要直接覆盖项目中的研究资料。
+当前版本已固定。更新时先在临时目录获取新的上游提交，比对 `.aris/vendor/aris/`、`.agents/skills/` 和 `.aris/tools/`，检查许可证、脚本与技能变更，再同步副本、更新版本记录并运行 `python3 scripts/check_portability.py`。该检查同时核对两个共享说明兼容目录及技能内部的本地 Markdown 链接。不要直接覆盖项目中的研究资料。

@@ -3,6 +3,7 @@
 
 import hashlib
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -75,6 +76,47 @@ def main():
         errors.append("skill copy errors: " + ", ".join(mismatches[:8]))
         if len(mismatches) > 8:
             errors.append("and " + str(len(mismatches) - 8) + " more skill copy errors")
+
+    # The Codex skills were moved from skills/skills-codex to .agents/skills.
+    # Their links to ../../shared-references and ../../../skills/shared-references
+    # therefore need these ordinary-directory mirrors of the pinned main pack.
+    main_shared = ROOT / ".aris/vendor/aris/skills/shared-references"
+    if not main_shared.is_dir():
+        errors.append("pinned main shared references are missing")
+    else:
+        source_tree = file_tree(main_shared)
+        required_shared = (
+            "effort-contract.md",
+            "output-composition.md",
+            "output-language.md",
+            "output-manifest.md",
+            "output-versioning.md",
+            "review-tracing.md",
+            "reviewer-backends.md",
+            "reviewer-routing.md",
+        )
+        expected_shared = {name: source_tree.get(name) for name in required_shared}
+        if None in expected_shared.values():
+            errors.append("required pinned main shared reference is missing")
+        for relative in (".agents/shared-references", "skills/shared-references"):
+            mirror = ROOT / relative
+            if mirror.is_symlink() or not mirror.is_dir():
+                errors.append(relative + " is not an ordinary directory")
+            elif file_tree(mirror) != expected_shared:
+                errors.append(relative + " differs from required pinned main shared references")
+
+    # A byte-for-byte copy can still contain broken links after relocation.
+    markdown_link = re.compile(r"(?<!!)\[[^]]+\]\(([^)]+\.md(?:#[^)]*)?)\)")
+    for directory in (skill_dir, ROOT / ".agents/shared-references", ROOT / "skills/shared-references"):
+        if not directory.is_dir():
+            continue
+        for path in directory.rglob("*.md"):
+            for destination in markdown_link.findall(path.read_text(encoding="utf-8")):
+                target = destination.split("#", 1)[0]
+                if target.startswith(("https://", "http://")) or any(char in target for char in "<{$"):
+                    continue
+                if not (path.parent / target).is_file():
+                    errors.append("broken Markdown link: " + str(path.relative_to(ROOT)) + " -> " + target)
 
     tools_dir = ROOT / ".aris/tools"
     vendor_tools = ROOT / ".aris/vendor/aris/tools"

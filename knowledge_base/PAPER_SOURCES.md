@@ -8,3 +8,5 @@
 | `wrist2finger.pdf` | *Wrist2Finger: Sensing Fingertip Force for Force-Aware Hand Interaction with a Ring-Watch Wearable* | ACM；[DOI 10.1145/3746059.3747767](https://doi.org/10.1145/3746059.3747767) |
 
 文件名、论文题目及 DOI 均来自本地 PDF 首页。
+
+**2026-11-05 本机校验**：用户提供的两份 PDF 已放入被 Git 忽略的 `knowledge_base/`，本机可通过实验方案中的相对链接打开；其他设备仍须自行取得原文。`HMotionGPT.pdf` 的 SHA-256 为 `b35f1647f3bd301dee2b76b7c5fc632a9830fa6cafa335d22dd7efd6122b0c65`；`wrist2finger.pdf` 的 SHA-256 为 `9178e81f77dc82153c2057227fcb5c41822c977a88ed562524df8488d1186ca6`。PDF 原文不提交到公开仓库。
