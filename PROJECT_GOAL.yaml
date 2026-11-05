@@ -1,11 +1,12 @@
 # 项目目标的唯一参数入口。重大方向变更先改此文件，再同步下游方案。
 schema_version: 1
-revision: 2
+revision: 3
 updated_on: 2026-11-05
 source:
   - 用户明确的低成本日常佩戴 EGO 数采、用于机器人 VLA 训练的目标
   - meetings/2026-11-02-kickoff/README.md（公开版任务摘要；原始纪要在私有存档）
   - 用户明确被试者已签署知情同意书，佩戴三设备并接入统一采集平台记录和存储数据的工作流
+  - knowledge_base/devices/sichiray_n1_2026-11-05.md（臂环接收器串口初检）
 
 north_star:
   application: robot_vla_training
@@ -26,7 +27,7 @@ data_path:
       signal: 前臂 8 通道 EMG
       auxiliary_signal: 前臂 6 轴惯性
       device: 思知瑞肌电臂环，实物版本待核实
-      hardware_status: 厂商参数已整理，原始导出与时间戳待实测
+      hardware_status: 已实测可读取 8/9/14 列文本流；设备型号、HEX 原始帧和设备时间戳仍待核实
     camera:
       signal: 第一视角 RGB 视频
       device: DJI Osmo Nano
@@ -43,7 +44,7 @@ current_phase:
     - 至少 10 条完整三流 episode 的试采记录
     - 机器人及两项可复位任务的动作接口和示范来源
     - 成本、佩戴负担、数据可用率和同步误差的实测
-  planning_status: 未完成；样本量、质量门槛和排期需试采后冻结
+  planning_status: N1 联调进行中；样本量、质量门槛和排期需试采后冻结
 
 final_evaluation:
   primary_metric: 真实机器人闭环任务成功数/试次数及其置信区间

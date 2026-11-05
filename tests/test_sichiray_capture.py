@@ -82,6 +82,23 @@ class CaptureTests(unittest.TestCase):
             self.assertEqual(report["candidate_first_offsets"], [5])
             self.assertEqual(report["candidate_first_device_ticks_big_endian"], [1234])
             self.assertEqual(report["eight_integer_text_lines"], 0)
+            self.assertEqual(report["nine_integer_text_lines"], 0)
+            self.assertEqual(report["fourteen_integer_text_lines"], 0)
+
+    def test_inspection_distinguishes_text_emg_and_imu_candidates(self):
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "serial_raw.bin"
+            path.write_bytes(b"1983 2005 1783 1844 1919 2002 2068 2010\n"
+                             b"00153 -0326 -0933 00000 -0001 00000 160 6 110\n"
+                             b"00027 00332 -0939 00000 00000 00000 1990 2005 1999 1995 1991 1993 1989 1987\n"
+                             b"incomplete 1 2")
+            output = StringIO()
+            with redirect_stdout(output):
+                self.assertEqual(capture_tool.inspect(SimpleNamespace(path=path)), 0)
+            report = json.loads(output.getvalue())
+            self.assertEqual(report["eight_integer_text_lines"], 1)
+            self.assertEqual(report["nine_integer_text_lines"], 1)
+            self.assertEqual(report["fourteen_integer_text_lines"], 1)
 
 
 if __name__ == "__main__":

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Read-only serial capture for the Sichiray forearm armband.
 
-The wire format is intentionally not decoded during capture. Both the vendor
-HEX stream and the eight-integer text stream seen in supplied older code are
-preserved byte-for-byte for later, hardware-backed protocol validation.
+The wire format is intentionally not decoded during capture. Candidate vendor
+HEX frames and the observed 8/9/14-integer text streams are preserved
+byte-for-byte for later, hardware-backed protocol validation.
 """
 
 import argparse
@@ -20,7 +20,7 @@ import time
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = PROJECT_ROOT / "data" / "sichiray"
 FRAME_BYTES = 98  # Candidate layout in the vendor document, not yet verified.
-TEXT_ROW = re.compile(rb"^\s*([+-]?\d+\s+){7}[+-]?\d+\s*$")
+INTEGER = re.compile(rb"[+-]?\d+")
 
 
 def utc_now():
@@ -159,8 +159,11 @@ def inspect(args):
         raise SystemExit(f"Raw capture not found: {path}")
     raw = path.read_bytes()
     digest = hashlib.sha256(raw).hexdigest()
-    text_lines = raw.splitlines()
-    valid_text = [line for line in text_lines if TEXT_ROW.fullmatch(line)]
+    text_counts = Counter()
+    for line in raw.split(b"\n")[:-1]:
+        fields = line.split()
+        if len(fields) in (8, 9, 14) and all(INTEGER.fullmatch(field) for field in fields):
+            text_counts[len(fields)] += 1
     lengths = Counter()
     ticks = []
     offsets = []
@@ -177,12 +180,14 @@ def inspect(args):
         "file": str(path.resolve()),
         "bytes": len(raw),
         "sha256": digest,
-        "eight_integer_text_lines": len(valid_text),
+        "eight_integer_text_lines": text_counts[8],
+        "nine_integer_text_lines": text_counts[9],
+        "fourteen_integer_text_lines": text_counts[14],
         "candidate_98_byte_hex_frames": len(offsets),
         "candidate_length_byte_counts": dict(sorted(lengths.items())),
         "candidate_first_offsets": offsets[:5],
         "candidate_first_device_ticks_big_endian": ticks[:5],
-        "interpretation": "candidate only; verify stream, timestamp unit and EMG encoding on hardware",
+        "interpretation": "text widths observed; field meanings, device clock and EMG encoding unverified",
     }
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0
