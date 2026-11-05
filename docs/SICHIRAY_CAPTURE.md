@@ -6,7 +6,7 @@
 
 - 用户提供的《思知瑞调试助手.zip》已解压到本机被 Git 忽略的 `data/vendor/sichiray_debug/`。主程序为 `思知瑞调试助手.exe`，SHA-256 为 `aea87eca302653a56971e6efdee0de2e9cf67a48b68a4a32b2c106bea19dea96`。该文件与《EEG_EMG_Collection.zip》中的 `EMG_Upper/emgsdk_demo.exe` 字节相同；无需安装两份上位机。Windows 显示该程序未作数字签名。实测时用户已打开该上位机；本次数据由独立的只读串口程序获取，尚未通过上位机导出文件。
 - 已在被忽略的 `.venv/` 中安装 `pyserial 3.5`，并准备了只读串口采集程序 [`scripts/sichiray_capture.py`](../scripts/sichiray_capture.py)。程序不向串口发送应用命令，保存每个收到的字节及每次读取的主机时间。
-- [厂商教程](https://sichiray-tech.yuque.com/dm0eyv/chanpin/iledy42eabd6dkxl)描述通过蓝牙接收器/串口连接，专业模式可保存文件，并描述 HEX 帧。压缩包内旧脚本用 `115200` 波特率读每行 8 个整数。本机接收器已验证该波特率可读文本；连续双击臂环按钮实测循环切换 8、9、14 列文本流，未观察到教程所述 HEX 帧。
+- 用户指认的[1.0 厂商教程](https://sichiray-tech.yuque.com/dm0eyv/chanpin/bflmvgotg46wszkm)描述蓝牙接收器、思知瑞调试助手、三种按键切换的 EMG/惯性内容，以及候选 HEX 帧；其“8 通道 EMG”“6 轴惯性”“两者合并”与本机 8/9/14 列文本循环在数据类别上相符，但实测文本没有设备时间戳或 HEX 帧。先前[2.0 教程](https://sichiray-tech.yuque.com/dm0eyv/chanpin/iledy42eabd6dkxl)的手势训练/专业模式说明不作为当前设备的操作依据。压缩包内旧脚本用 `115200` 波特率读每行 8 个整数，本机已验证该波特率可读文本。
 
 ## 再次接入或复采
 

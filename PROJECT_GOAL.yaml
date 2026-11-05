@@ -1,12 +1,13 @@
 # 项目目标的唯一参数入口。重大方向变更先改此文件，再同步下游方案。
 schema_version: 1
-revision: 3
+revision: 4
 updated_on: 2026-11-05
 source:
   - 用户明确的低成本日常佩戴 EGO 数采、用于机器人 VLA 训练的目标
   - meetings/2026-11-02-kickoff/README.md（公开版任务摘要；原始纪要在私有存档）
   - 用户明确被试者已签署知情同意书，佩戴三设备并接入统一采集平台记录和存储数据的工作流
   - knowledge_base/devices/sichiray_n1_2026-11-05.md（臂环接收器串口初检）
+  - 用户指认的思知瑞《8通道肌电臂环 1.0上位机教程》（硬件修订号仍待实物核验）
 
 north_star:
   application: robot_vla_training
@@ -26,8 +27,8 @@ data_path:
     armband:
       signal: 前臂 8 通道 EMG
       auxiliary_signal: 前臂 6 轴惯性
-      device: 思知瑞肌电臂环，实物版本待核实
-      hardware_status: 已实测可读取 8/9/14 列文本流；设备型号、HEX 原始帧和设备时间戳仍待核实
+      device: 思知瑞 8 通道肌电臂环，用户指认对应 1.0 上位机教程
+      hardware_status: 已实测可读取 8/9/14 列文本流；硬件修订号、HEX 原始帧和设备时间戳仍待核实
     camera:
       signal: 第一视角 RGB 视频
       device: DJI Osmo Nano
