@@ -1,6 +1,6 @@
 # 项目目标的唯一参数入口。重大方向变更先改此文件，再同步下游方案。
 schema_version: 1
-revision: 6
+revision: 7
 updated_on: 2026-11-09
 source:
   - 用户明确的低成本日常佩戴 EGO 数采、用于机器人 VLA 训练的目标
@@ -34,8 +34,11 @@ data_path:
     camera:
       signal: 第一视角 RGB 视频
       device: 待采购的第一视角RGB采集模块（已取消DJI Osmo Nano暂定选型）
-      selection_status: 重新选型；优先评估可导出逐帧时间与标定的头戴双目方案，具体SKU、预算、接口和样片待确认
+      selection_status: 已核对锐尔威视候选商品与镜头价格；随身主机、时间戳SDK、原始样包及整套报价待确认，未采购
       procurement_reference: knowledge_base/devices/vision_procurement_2026-11-09.md
+      first_kit_budget_target_cny: 2000
+      budget_scope: 首套视觉相机及必要采集主机、供电、存储和佩戴配件；优先控制在此金额内，不是已授权支付
+      mobility_requirement: 允许有线连接随身采集盒，但被试必须能走动，不能依赖固定桌面电脑
   intermediate_product: 带原始流、时间映射、任务/事件标签、质量标记及来源的可重放 episode
   robot_action_supervision: 机器人自身轨迹、经验证的遥操作或经验证的跨本体映射
 
