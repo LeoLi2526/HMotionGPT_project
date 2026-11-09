@@ -1,0 +1,2 @@
+# BLE transport only; frame parsing and offline imports use the standard library.
+bleak>=1.0,<4

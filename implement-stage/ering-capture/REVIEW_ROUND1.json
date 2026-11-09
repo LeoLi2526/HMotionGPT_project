@@ -1,0 +1,160 @@
+{
+  "undeclared": [
+    {
+      "site": "E:/HMotionGPT_project/scripts/ering_store.py:478-490,504-512",
+      "decision": "时间语义异常采用仅添加 QC 标记的处理方式：即使 period_us 为 0，仍生成数值型 device_time_us、计入导出样本，并可能返回 exit_code=0。账本 E04/E05 未声明这一有效性边界。",
+      "why_it_matters": "已复现两条样本均被赋予 device_time_us=1000，同时派生成功。下游仅读取 CSV 或命令退出码时，无法知道这些时间已被实现自身判为 invalid_nominal_period。保留原始整数与允许生成有效派生时间是不同决定。",
+      "class": "semantic"
+    },
+    {
+      "site": "E:/HMotionGPT_project/scripts/ering_store.py:408-419,464-465,504-512; E:/HMotionGPT_project/tests/test_ering_store.py:344-360",
+      "decision": "失败或中断采集只要原始文件完整性通过，仍导出其中有效样本，生成可读取的 imu.csv，同时通过 QC 和非零退出码表达不完整。账本 E13 和使用文档没有明确说明这种部分数据保留语义。",
+      "why_it_matters": "这是可以成立的研究工作流选择，不是必须删除数据的缺陷；但应明确告知操作者，CSV 存在或非空不表示采集成功。反例中 failed 采集导出 1 条样本，exit_code=1，失败 QC 保留正确。",
+      "class": "semantic"
+    },
+    {
+      "site": "E:/HMotionGPT_project/scripts/ering_store.py:482-486",
+      "decision": "跨批连续性使用首样本时间与前批标称终点严格相等的判据；配置周期比较采用约 1 微秒容差。这些 QC 判据没有在假设账本中声明，供应商原文只明确 period_us 是标称周期。",
+      "why_it_matters": "该规则决定哪些数据被标为 device_time_discontinuity 或 config_period_mismatch。需要说明它检查的是对标称时间模型的偏离，不能仅凭该标记推断实际丢样。本项是解释规则未声明，不是对实机抖动或丢样的测量结论。",
+      "class": "semantic"
+    }
+  ],
+  "stale_rows": [
+    {
+      "row": "E03",
+      "site": "E:/HMotionGPT_project/implement-stage/ering-capture/ASSUMPTIONS.md:9",
+      "declared": "不在未连接设备时自动扫描。",
+      "actual": "E:/HMotionGPT_project/scripts/ering_capture.py:279-280 在连接前调用 Scanner.find_device_by_address，并传入服务 UUID 过滤。",
+      "correction": "改为明确说明：只有操作者执行 ring-scan 或提供地址执行 ring-capture 时才进行发现；ring-capture 会在连接前查找指定地址。这里没有发现未经用户命令触发的后台扫描。"
+    },
+    {
+      "row": "E04",
+      "site": "E:/HMotionGPT_project/implement-stage/ering-capture/ASSUMPTIONS.md:10; E:/HMotionGPT_project/docs/ERING_CAPTURE.md:55-57",
+      "declared": "完整帧及异常均保留；raw_frames.jsonl 包括每次完整帧中的无效帧。",
+      "actual": "BLE 完整坏 CRC 帧在 Reassembler 内被拒绝，不能进入 Recorder.accept；分片和 transport_error 保留，但完整帧记录、逐帧 validation 和 invalid_frames 计数缺失。",
+      "correction": "修复完整坏帧的归档路径，并使账本、文档与统计口径一致；不能把目前仅保留原始分片表述为已保存每条完整坏帧。"
+    },
+    {
+      "row": "E14",
+      "site": "E:/HMotionGPT_project/implement-stage/ering-capture/ASSUMPTIONS.md:20",
+      "declared": "MORE 保留而不作为完成信号。",
+      "actual": "解码器确实保留并接受 MORE，但 Link.notification 对普通响应要求 flags==1，对 REPLAY_DONE 要求 flags==0；带 MORE 的合法响应会被等待器忽略。已复现 SAMPLE_CONFIG flags=5 被解码接受后超时。",
+      "correction": "统一解码器与响应匹配层对 MORE 的处理；补传数据帧计数仍必须遵守协议要求的 flags 恰为 REPLAY，不能一并放宽。"
+    }
+  ],
+  "semantic_undeclared": 3,
+  "verdict": "gaps",
+  "bugs": [
+    {
+      "priority": "P2",
+      "site": "E:/HMotionGPT_project/scripts/ering_store.py:480-490,504-512",
+      "evidence": "临时合成 IMU 批：first_sample_us=1000、period_us=0、count=2，并提供同代同配置的 50 Hz SAMPLE_CONFIG。derive 添加 invalid_nominal_period 和 config_period_mismatch，却导出 device_time_us=[1000,1000]，返回 exit_code=0。",
+      "impact": "已知无效的标称周期仍成为数值型样本时间，且命令成功信号掩盖了时间不可用状态。下游按照 CSV 时间列进行对齐或重采样时可能使用这些无效时间。",
+      "fix": "保留原始整数和原始周期；周期无效时不要计算数值型派生样本时间，明确输出时间不可用，并使派生结果的失败状态与该异常一致。增加针对零周期批的回归断言即可，不需要新增配置机制。"
+    },
+    {
+      "priority": "P2",
+      "site": "E:/HMotionGPT_project/scripts/experiment_session.py:380-400",
+      "evidence": "status 只遍历 episode/derived，没有遍历 ring_derived。上述反例已生成 ring_derived/times/qc.json，包含 invalid_nominal_period 和 config_period_mismatch；随后 status 返回 derived=[]，没有 ring_derived 字段，issues 中也没有这些时间问题。",
+      "impact": "戒指派生已经发现的问题在统一 episode 状态中消失。按文档执行 ring-import、ring-derive、status 后，操作者不能从最终状态汇总看到这些 QC。modality_present.ring=true 本身符合 E11 的存在性定义；缺陷是派生结果和问题未被汇总。",
+      "fix": "在现有 status 实现中读取 ring_derived 下的 qc.json，报告派生标识、输出样本数及 QC，并将读取失败列入 issues。保持存在性与质量状态分开，不需要新建验证框架。"
+    },
+    {
+      "priority": "P2",
+      "site": "E:/HMotionGPT_project/scripts/ering_capture.py:87-115; E:/HMotionGPT_project/scripts/ering_protocol.py:351-354; E:/HMotionGPT_project/tests/test_ering_capture.py:70-73,86-89,182-189",
+      "evidence": "将一条 IMU 帧的 CRC 字节翻转，再手工按 MTU23 分成 5 个通知送入真实 Link.notification。结果 fault='frame CRC32 mismatch'，notifications.jsonl 保存 5 条，但 frames_received=0、invalid_frames=0，validation.jsonl 为空。另验证现有 FakeClient('bad_crc')：它调用 fragment_frame 时就在发送端被 CRC 检查拒绝，接收通知数为 0，因此当前相关测试没有覆盖该接收路径。",
+      "impact": "坏帧不会进入样本或推进游标，这部分正确，原始分片也没有丢失；但完整坏帧缺少承诺的归档与逐帧错误记录，错误帧统计低报，现有模拟测试又未检查这一缺口。",
+      "fix": "把已经完整组装的原始帧归档放到外层校验拒绝之前，仍禁止校验失败帧进入有效数据或游标提交。修改模拟测试为先生成合法分片，再破坏其中的 CRC 字节并经过 notification，检查归档和错误计数。"
+    },
+    {
+      "priority": "P2",
+      "site": "E:/HMotionGPT_project/scripts/ering_capture.py:102-103,174-203; E:/HMotionGPT_project/data/vendor/ering/2026-11-09/protocol.md:203-208,250",
+      "evidence": "合成设备在 REPLAY_REQUEST 后返回 ERROR(code=9, origin_type=6)。实际请求序列为 [1,2,3,5,48,6]，只有初始一次 SYNC_STATUS 查询，随后 RuntimeError 终止；没有重新查询 oldest/next，也没有记录新的覆盖区间。cursor_commits=[]，未错误提交失败页。",
+      "impact": "协议明确要求遇到 STALE_CURSOR 重查 SYNC_STATUS，记录覆盖并从 oldest 继续。当前代码把这一可识别的存储游标状态变成永久 Link.fault，既缺少覆盖范围证据，也会中止本次后续实时采集。",
+      "fix": "单独处理 REPLAY_REQUEST 的 STALE_CURSOR：保留失败页不提交，重新查询 SYNC_STATUS，记录原请求游标与新 oldest 所表明的覆盖，再按现有有限补传策略继续。不要扩大为所有错误的自动重试机制。"
+    },
+    {
+      "priority": "P2",
+      "site": "E:/HMotionGPT_project/scripts/ering_capture.py:104-113; E:/HMotionGPT_project/scripts/ering_protocol.py:224-226; E:/HMotionGPT_project/tests/test_ering_protocol.py:168-179; E:/HMotionGPT_project/tests/test_ering_store.py:136-149",
+      "evidence": "返回 request_id、type 均匹配且 flags=RESPONSE|MORE，即 5 的 SAMPLE_CONFIG。解码器和记录器接受该帧，accepted_response_flags=[5]，Link.request 最终却抛 TimeoutError。仓库现有协议测试将该组合列为合法，存储测试也实际构造 config(flags=5)。",
+      "impact": "当前软件内部对同一合法帧存在不一致契约：可解码、可存储的响应不能完成对应请求。这不是关于现有实机已经发送 MORE 的主张，而是已由仓库自身支持的输入复现的软件互操作缺陷。",
+      "fix": "普通响应和 REPLAY_DONE 的匹配应忽略已知的 MORE 位，同时保留其原值用于归档；不得将 MORE 用作等待后续完成的条件。补传数据计数继续严格要求 flags==REPLAY。"
+    }
+  ],
+  "validation": {
+    "scope": "当前 eRing 软件接入，包括用户追加的 software_identity 函数和 ASSUMPTIONS E15；不将设备缺席或明确延后的音频、执行器、OTA 功能列为缺陷。",
+    "final_file_review": {
+      "ering_capture": "已重读新增 software_identity 后的最终文件，观察到文件长度 13823 字节。",
+      "assumptions": "已重读最终 E01-E15。",
+      "ering_store": "用户通知停止写入后重新读取了最终文件。",
+      "stability": "临时反例与额外回归运行前后，对范围内 14 个源文件、规范和测试文件比较原始字节及修改时间，均未变化。"
+    },
+    "regression": [
+      {
+        "command": "python -B -m unittest discover -s tests -p 'test_ering*.py' -q",
+        "version": "最终 ering_capture.py 更新后重跑",
+        "tests": 64,
+        "failures": 0,
+        "errors": 0,
+        "result": "passed"
+      },
+      {
+        "suite": "tests/test_experiment_session.py",
+        "tests": 20,
+        "failures": 0,
+        "errors": 0,
+        "result": "passed",
+        "execution_note": "仅在测试进程内将 TemporaryDirectory 的位置重定向到系统临时目录，避免该测试原有 setUp 在项目 implement-stage 下创建临时文件；未修改测试文件或产品代码。"
+      }
+    ],
+    "counterexamples": [
+      "MORE 响应已通过解码但请求超时。",
+      "STALE_CURSOR 后未重查 SYNC_STATUS，失败页没有提交游标。",
+      "真实通知接收路径中的完整坏 CRC 帧仅保留分片，完整帧与错误帧统计为零。",
+      "现有 bad_crc 模拟在发送端失败，接收路径没有被执行。",
+      "零周期批导出重复数值时间并返回成功；相关派生 QC 未进入 status。",
+      "失败采集可以导出部分有效样本，同时正确保留非零退出码和失败 QC。"
+    ],
+    "software_identity_E15": {
+      "result": "未发现需要报告的功能缺陷。",
+      "checked": [
+        "成功路径分别记录 protocol_version、python_version、bleak_version、git_commit 和 git_dirty。",
+        "缺失 Bleak 时记录 not_installed；Git 不可用时保留 git_commit='unknown'、git_dirty=null。",
+        "Git 调用使用固定参数列表、shell=false，并分别设置 2 秒超时；未发现远程命令、网络服务或安装行为。",
+        "E15 已说明 dirty 只是提示，不能保证从 Git 重建未提交代码；不要求增加内容绑定机制。"
+      ],
+      "method": "通过本地替身检查成功和不可用分支；替身版本值不代表机器实际安装版本。"
+    },
+    "confirmed_correct": [
+      "文档向量、整数符号、长度、保留字段和 CRC 检查有实现及回归覆盖；没有将主机请求误作为已知设备响应导入。",
+      "未知 v2 类型保持不透明并保存原始帧；已知非持久类型不能伪装成有效补传数据计数。",
+      "补传按实际收到的帧次数计数，包括重复；样本索引去重并隔离冲突键。计数不符或失败页不提交游标。",
+      "游标提交前刷新并 fsync 原始记录，随后原子替换游标；现有 fsync 和替换失败测试通过。",
+      "原始 IMU 整数保留；物理量换算要求同采集代、同配置且配置无冲突。",
+      "TIME_SYNC 保留两端时间交换证据，没有自动把设备单调时钟当 UTC，也没有将当前代映射套用到历史代。",
+      "默认派生排除仅补传获得的样本，显式包含补传时标记归属未知；仅有补传数据不会让新 ring 采集满足当前试次存在性条件。",
+      "被试归属依赖操作者选择 episode，并未通过 BLE 身份或设备 capture_id 自动认证；没有发现代码宣称已独立证明被试身份。",
+      "独占采集和派生目录、失败记录保留、原件与派生分离均有实现；没有发现本轮代码自动执行音频 ACK、执行器或 OTA。"
+    ],
+    "constraints_observed": {
+      "project_files_modified": false,
+      "device_scan_or_connection": false,
+      "installation": false,
+      "commit_or_push": false,
+      "subagents_invoked": false,
+      "chat_or_implementer_explanations_used": false,
+      "temporary_artifacts": "只在系统临时目录生成合成数据和测试产物，使用后清理。",
+      "python_version": "3.12.4",
+      "full_repository_suite_claimed": false
+    },
+    "reviewer_identity": {
+      "configured_family": "Codex / GPT-6，同家族",
+      "exact_runtime_model_id": null,
+      "requested_reasoning": "xhigh",
+      "actual_reasoning_setting": "工具未暴露，无法核验；未调用或切换其他审阅模型。",
+      "assurance_limit": "这是隔离实现者解释的同家族只读复核，不构成跨模型或独立第三方保证。测试通过不能覆盖上述已复现缺陷。"
+    }
+  },
+  "review_independence": "same-family",
+  "acceptance_status": "provisional"
+}

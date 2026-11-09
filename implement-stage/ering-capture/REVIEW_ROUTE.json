@@ -1,0 +1,15 @@
+{
+  "backend": "codex",
+  "host": "codex",
+  "source": "host-default",
+  "resolved_model": "gpt-6-astra",
+  "resolved_effort": "xhigh",
+  "transport": "native",
+  "actual_model_selection": "inherited current model; tool did not report an independent family identity",
+  "reasoning_effort_requested": "xhigh",
+  "reviewer_session": "01a1c090-8f78-77d1-aaea-d05a7e1fee1c",
+  "review_independence": "same-family",
+  "acceptance_status": "provisional",
+  "rounds_completed": 2,
+  "fresh_context": true
+}

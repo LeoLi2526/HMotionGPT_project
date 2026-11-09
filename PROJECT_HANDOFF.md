@@ -29,6 +29,8 @@
 
 ## 新主机接力顺序
 
+2026-11-09 eRing接入：用户提供自制戒指hardware.md/protocol.md，已原样归档到本机忽略目录，来源与校验值见[参数卡](./knowledge_base/devices/ering.md)。协议定义BLE v2、50Hz六轴原值、采集代及设备单调微秒时间；均仍待实物确认。用户表示设备暂不在身边，本轮没有扫描或连接设备。平台新增ring-scan/capture/import/derive及status集成，文档在[戒指采集说明](./docs/ERING_CAPTURE.md)，实现与离线验收记录在[BUILD_NOTE](./implement-stage/ering-capture/BUILD_NOTE.md)。默认排除历史补传样本，不自动归属当前被试；保留原始帧、配置、主机收发时间与时钟证据。协议、假BLE与命令入口验证不能代替实机验收，N1继续RUNNING，N2三流同步仍未通过。旧段落中的“戒指资料待获取”是此前状态，现已取得文档，真实样本仍缺失。
+
 2026-11-05 后续联调：桌面控制已实测可操作调试助手（鼠标、键盘、连接、录制、停录、释放串口）。“关于”无版本号；PE 字段为 serialplot / 0.0.0.0，用程序校验值标识版本，教程 1.0 不作为硬件/固件版本号。GUI 已导出 Unix 毫秒时间，但成批到达与重复时间仍存在。此前将“暂停时录制”误读成“暂停录制”的解释已撤回。多被试保存、时间边界、软件入口和新的实机工程样本见 [多被试采集说明](./docs/MULTISUBJECT_CAPTURE.md)。相机和戒指未实接，N1 仍 RUNNING，不能宣称三模态同步通过。
 
 1. 按 [跨设备指南](./docs/CROSS_DEVICE.md)接续。2026-11-03 从 Linux 到 Windows 的聊天 Hand off 被“分页聊天”限制阻断；需要 Windows 本地外设时，在 Windows 更新已有副本并运行 `python scripts/check_portability.py`。当前仓库可接续项目文件状态，但聊天历史仍不随 Git 转移。

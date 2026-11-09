@@ -309,6 +309,20 @@ def status(args):
     episode = require_episode(args.episode)
     present = dict.fromkeys(("armband", "camera", "ring"), False)
     issues, captures, attachments, derived = [], [], [], []
+    ring_captures, ring_derived = [], []
+    for directory in sorted((episode / "ring_captures").glob("*")):
+        if not directory.is_dir():
+            continue
+        try:
+            from ering_store import verify_capture
+            item = verify_capture(directory)
+            item["capture_id"] = directory.name
+            present["ring"] |= bool(item.get("raw_verified") and item.get("live_imu_samples", 0) > 0)
+            issues.extend(f"ring:{directory.name}:{flag}" for flag in item.get("qc_flags", []))
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            item = {"capture_id": directory.name, "raw_verified": False, "error": str(exc)}
+            issues.append(f"ring:{directory.name}:{exc}")
+        ring_captures.append(item)
     event_files = sorted(path for path in (episode / "events").glob("*.json") if path.is_file())
     event_count = 0
     for path in event_files:
@@ -373,18 +387,63 @@ def status(args):
             issues.extend(f"derive:{directory.name}:{flag}" for flag in report["qc_flags"])
         except (OSError, ValueError, KeyError, TypeError) as exc:
             issues.append(f"derive:{directory.name}:{exc}")
+    for directory in sorted((episode / "ring_derived").glob("*")):
+        if not directory.is_dir():
+            continue
+        try:
+            report = read_json(directory / "qc.json")
+            ring_derived.append({"derive_id": directory.name, "imu_samples": report["imu_samples"],
+                                 "qc_flags": report["qc_flags"], "exit_code": report["exit_code"]})
+            issues.extend(f"ring_derive:{directory.name}:{flag}" for flag in report["qc_flags"])
+            if report["exit_code"] != 0:
+                issues.append(f"ring_derive:{directory.name}:derive_incomplete_or_invalid")
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            issues.append(f"ring_derive:{directory.name}:{exc}")
+    clocks = dict.fromkeys(present, "unknown")
+    if any(item.get("raw_verified") and item.get("live_imu_samples", 0) > 0 for item in ring_captures):
+        clocks["ring"] = "device_monotonic_us; batch-internal sample times nominal"
     return {"schema_version": 1, "episode": str(episode), "modality_present": present,
             "missing_modalities": [name for name, found in present.items() if not found],
-            "device_clock_source": dict.fromkeys(present, "unknown"),
-            "unknown_clock_modalities": list(present), "synchronization": "unverified",
+            "device_clock_source": clocks,
+            "unknown_clock_modalities": [name for name, value in clocks.items() if value == "unknown"],
+            "utc_mapping_status": dict.fromkeys(present, "unverified"), "synchronization": "unverified",
             "hardware_sync_verified": False,
             "event_count": event_count, "event_file_count": len(event_files),
-            "captures": captures, "attachments": attachments, "derived": derived,
+            "captures": captures, "ring_captures": ring_captures, "ring_derived": ring_derived,
+            "attachments": attachments, "derived": derived,
             "qc_flags": ["device_clocks_unknown", "synchronization_unverified"] +
                         (["missing_modalities"] if not all(present.values()) else []) +
                         (["invalid_events"] if event_count != len(event_files) else []),
             "issues": issues,
             "semantics": "presence and file integrity only; not signal validity or synchronization proof"}
+
+
+def ring_scan(args):
+    import asyncio
+    import ering_capture
+    return asyncio.run(ering_capture.scan(args.seconds))
+
+
+def ring_capture(args):
+    import asyncio
+    import ering_capture
+    episode = require_episode(args.episode)
+    directory = episode / "ring_captures" / identifier(args.capture_id)
+    return asyncio.run(ering_capture.capture(directory, args.address, args.seconds,
+                                             args.replay_pages, args.timeout))
+
+
+def ring_import(args):
+    from ering_store import import_frames
+    episode = require_episode(args.episode)
+    return import_frames(args.file, episode / "ring_captures" / identifier(args.capture_id))
+
+
+def ring_derive(args):
+    from ering_store import derive as derive_ring
+    episode = require_episode(args.episode)
+    return derive_ring(episode / "ring_captures" / identifier(args.capture_id),
+                       episode / "ring_derived" / identifier(args.derive_id), args.include_replay)
 
 
 def parser():
@@ -421,6 +480,28 @@ def parser():
     p.add_argument("--capture-id", required=True)
     p.add_argument("--derive-id", required=True)
     p.set_defaults(handler=derive)
+    p = commands.add_parser("ring-scan", help="Explicitly scan eRing v2 BLE advertisements")
+    p.add_argument("--seconds", type=float, default=5)
+    p.set_defaults(handler=ring_scan)
+    p = commands.add_parser("ring-capture", help="Capture eRing v2 BLE IMU and protocol evidence")
+    p.add_argument("--episode", type=Path, required=True)
+    p.add_argument("--capture-id", required=True)
+    p.add_argument("--address", required=True)
+    p.add_argument("--seconds", type=float, required=True)
+    p.add_argument("--timeout", type=float, default=10)
+    p.add_argument("--replay-pages", type=int, default=0)
+    p.set_defaults(handler=ring_capture)
+    p = commands.add_parser("ring-import", help="Archive complete v2 frames from raw_hex JSONL")
+    p.add_argument("--episode", type=Path, required=True)
+    p.add_argument("--capture-id", required=True)
+    p.add_argument("--file", type=Path, required=True)
+    p.set_defaults(handler=ring_import)
+    p = commands.add_parser("ring-derive", help="Export IMU counts and nominal device sample times")
+    p.add_argument("--episode", type=Path, required=True)
+    p.add_argument("--capture-id", required=True)
+    p.add_argument("--derive-id", required=True)
+    p.add_argument("--include-replay", action="store_true")
+    p.set_defaults(handler=ring_derive)
     p = commands.add_parser("status", help="Read-only modality, integrity, unknown clock and sync summary")
     p.add_argument("--episode", type=Path, required=True)
     p.set_defaults(handler=status)
@@ -433,7 +514,7 @@ def main(argv=None):
         result = args.handler(args)
         print(json.dumps(result, ensure_ascii=False))
         return result.get("exit_code", 0)
-    except (OSError, ValueError, KeyError, TypeError) as exc:
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError) as exc:
         print(json.dumps({"error": f"{type(exc).__name__}: {exc}"}, ensure_ascii=False), file=sys.stderr)
         return 1
 
