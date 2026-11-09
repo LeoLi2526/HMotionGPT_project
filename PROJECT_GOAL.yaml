@@ -1,6 +1,6 @@
 # 项目目标的唯一参数入口。重大方向变更先改此文件，再同步下游方案。
 schema_version: 1
-revision: 5
+revision: 6
 updated_on: 2026-11-09
 source:
   - 用户明确的低成本日常佩戴 EGO 数采、用于机器人 VLA 训练的目标
@@ -9,6 +9,7 @@ source:
   - knowledge_base/devices/sichiray_n1_2026-11-05.md（臂环接收器串口初检）
   - 用户指认的思知瑞《8通道肌电臂环 1.0上位机教程》（硬件修订号仍待实物核验）
   - 用户提供的eRing硬件说明与BLE协议v2（knowledge_base/devices/ering.md；文档参数待实机核验）
+  - 2026-11-09用户明确不再采用Nano，重新采购适配戒指和臂环的第一视角视觉模块
 
 north_star:
   application: robot_vla_training
@@ -32,8 +33,9 @@ data_path:
       hardware_status: 已实测可读取 8/9/14 列文本流；硬件修订号、HEX 原始帧和设备时间戳仍待核实
     camera:
       signal: 第一视角 RGB 视频
-      device: DJI Osmo Nano
-      selection_status: 一期暂定，实机型号和佩戴效果待核实
+      device: 待采购的第一视角RGB采集模块（已取消DJI Osmo Nano暂定选型）
+      selection_status: 重新选型；优先评估可导出逐帧时间与标定的头戴双目方案，具体SKU、预算、接口和样片待确认
+      procurement_reference: knowledge_base/devices/vision_procurement_2026-11-09.md
   intermediate_product: 带原始流、时间映射、任务/事件标签、质量标记及来源的可重放 episode
   robot_action_supervision: 机器人自身轨迹、经验证的遥操作或经验证的跨本体映射
 
