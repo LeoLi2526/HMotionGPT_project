@@ -1,7 +1,7 @@
 # 项目目标的唯一参数入口。重大方向变更先改此文件，再同步下游方案。
 schema_version: 1
-revision: 7
-updated_on: 2026-11-09
+revision: 8
+updated_on: 2026-11-10
 source:
   - 用户明确的低成本日常佩戴 EGO 数采、用于机器人 VLA 训练的目标
   - meetings/2026-11-02-kickoff/README.md（公开版任务摘要；原始纪要在私有存档）
@@ -10,6 +10,7 @@ source:
   - 用户指认的思知瑞《8通道肌电臂环 1.0上位机教程》（硬件修订号仍待实物核验）
   - 用户提供的eRing硬件说明与BLE协议v2（knowledge_base/devices/ering.md；文档参数待实机核验）
   - 2026-11-09用户明确不再采用Nano，重新采购适配戒指和臂环的第一视角视觉模块
+  - 2026-11-10用户明确允许各设备分别采集后对齐时间，不要求同一盒子接入三设备
 
 north_star:
   application: robot_vla_training
@@ -21,6 +22,8 @@ north_star:
 data_path:
   source: 人类日常手物操作
   collection_workflow: 已签署知情同意书的被试者佩戴相机、戒指和前臂肌电臂环；采集平台管理会话、接入或导入设备原始流并保存证据
+  recording_architecture: 允许各设备独立记录后导入同一会话；共用随身主机是可选实现，不是采购硬条件
+  alignment_requirement: 保存各流原始时钟及采集代，按时钟段拟合偏移与漂移并以留出事件验证；同时启动或同为微秒单位不等于同步
   modalities:
     ring:
       signal: 手指运动 IMU
@@ -34,7 +37,7 @@ data_path:
     camera:
       signal: 第一视角 RGB 视频
       device: 待采购的第一视角RGB采集模块（已取消DJI Osmo Nano暂定选型）
-      selection_status: 已核对锐尔威视候选商品与镜头价格；随身主机、时间戳SDK、原始样包及整套报价待确认，未采购
+      selection_status: 已取得锐尔威视SDK及AVI样片并静态核查微秒时间字段；离线时间解码未验证，厂商录像盒尚未开售或定价，整套便携方案待确认，未采购
       procurement_reference: knowledge_base/devices/vision_procurement_2026-11-09.md
       first_kit_budget_target_cny: 2000
       budget_scope: 首套视觉相机及必要采集主机、供电、存储和佩戴配件；优先控制在此金额内，不是已授权支付

@@ -83,3 +83,6 @@ Gemini的[Python接口](https://github.com/orbbec/pyorbbecsdk)及Luxonis的[Dept
 - 真实佩戴可见性、同步残差、续航和跨被试准备时间。
 
 本轮仅采购研究与方案调整，N1保持RUNNING，N2未通过；未写入或运行新相机驱动，也未进行相机实测。
+
+
+**2026-11-10后续更新**：原始AVI与Windows/Linux SDK已收到，详见[SDK与样片复核](./rervision_sdk_sample_2026-11-10.md)。SDK有微秒曝光及IMU时间字段，离线解码和实际连续性尚未验证。客服明确录像盒未开售/未定价。用户已接受各设备分别记录后对齐；同一主机接CH340/BLE仅为可选能力，不是采购条件。尚缺完整可交付便携方案及整套报价。此前“SDK/样包未取得”等表述为当时状态。
