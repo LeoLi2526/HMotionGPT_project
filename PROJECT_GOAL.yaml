@@ -1,7 +1,7 @@
 # 项目目标的唯一参数入口。重大方向变更先改此文件，再同步下游方案。
 schema_version: 1
-revision: 8
-updated_on: 2026-11-10
+revision: 9
+updated_on: 2026-11-12
 source:
   - 用户明确的低成本日常佩戴 EGO 数采、用于机器人 VLA 训练的目标
   - meetings/2026-11-02-kickoff/README.md（公开版任务摘要；原始纪要在私有存档）
@@ -28,7 +28,7 @@ data_path:
     ring:
       signal: 手指运动 IMU
       device: 自制eRing（用户提供nRF54L15/ICM45686硬件说明和BLE v2协议）
-      hardware_status: 文档定义50Hz六轴原值、设备单调微秒时钟和采集代；BLE与episode软件入口已离线联调，实物固件、输出、配对和同步精度待核实
+      hardware_status: 已通过BLE读取主板固件2.1.5及硬件修订字段2，完成两段实时六轴采集共2280样本；批次时间偏离标称模型、两段间采集代变化及转动响应待进一步核实，三流同步未验证
     armband:
       signal: 前臂 8 通道 EMG
       auxiliary_signal: 前臂 6 轴惯性

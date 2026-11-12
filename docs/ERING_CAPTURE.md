@@ -77,3 +77,8 @@ $episodePath = 'data/episodes/P001/20261109_PM01/T001'
 4. 臂环与戒指同episode并行试采，再加入相机；用开始/中间/结束共同事件拟合并独立检查误差。
 
 目前以上为待办，不计入N2完整三模态试次数。软件验证详情见 [BUILD_NOTE](../implement-stage/ering-capture/BUILD_NOTE.md)，所有会影响数据解释的选择见 [ASSUMPTIONS](../implement-stage/ering-capture/ASSUMPTIONS.md)。
+
+
+## 首次实机检查（2026-11-12）
+
+现有命令已成功扫描、连接和读取主板，固件报告2.1.5；15秒/30秒观察分别保存765/1515个IMU样本。传输完整性通过，但两段接近静止，动作响应未验证；批次时间相对标称周期有约-480微秒偏差，两个采集代分开处理。上位机eRingWeb1.0.6仅完成静态核查，未运行或验证其导出兼容。完整证据见[首次实采](../knowledge_base/devices/ering_n1_2026-11-12.md)，不将采样成功视为N2同步通过。
