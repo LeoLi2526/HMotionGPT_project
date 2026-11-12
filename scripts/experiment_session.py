@@ -19,6 +19,9 @@ import sichiray_capture
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ROOT = PROJECT_ROOT / "data" / "episodes"
+PURPOSES = ("engineering", "pilot", "research")
+RING_MOUNTS = ("bare_board", "worn", "unknown")
+RING_POWERS = ("tethered", "battery", "unknown")
 
 
 def identifier(value):
@@ -67,6 +70,11 @@ def create(args):
         "consent_scope": args.consent_scope, "consent_basis": "operator_declaration",
         "created": stamp(), "device_clock_source": dict.fromkeys(("armband", "camera", "ring"), "unknown"),
         "synchronization": "unverified",
+        "acquisition_context": {
+            "purpose": getattr(args, "purpose", "engineering"),
+            "ring_mount": getattr(args, "ring_mount", "unknown"),
+            "ring_power": getattr(args, "ring_power", "unknown"), "wear_calibration": "unverified",
+        },
     }
     write_new_json(episode / "episode.json", metadata)
     return {"episode": str(episode), "metadata": metadata}
@@ -305,8 +313,28 @@ def validate_event(path):
         raise ValueError("event notes must be a string")
 
 
+def acquisition_status(metadata):
+    """Classify declared acquisition conditions, never grant training acceptance."""
+    recorded = metadata.get("acquisition_context")
+    if not isinstance(recorded, dict):
+        recorded = {}
+    context = {}
+    for key, choices in (("purpose", PURPOSES), ("ring_mount", RING_MOUNTS),
+                         ("ring_power", RING_POWERS)):
+        value = recorded.get(key)
+        context[key] = value if isinstance(value, str) and value in choices else "unknown"
+    # No calibration or training acceptance mechanism exists yet.
+    context["wear_calibration"] = "unverified"
+    # Bare-board motion is not finger motion. Power alone says nothing about IMU quality.
+    engineering_only = context["purpose"] == "engineering" or context["ring_mount"] == "bare_board"
+    return {"acquisition_context": context,
+            "data_use": {"decision": "engineering_only" if engineering_only else "pending_validation",
+                         "training_eligible": False}}
+
+
 def status(args):
     episode = require_episode(args.episode)
+    acquisition = acquisition_status(read_json(episode / "episode.json"))
     present = dict.fromkeys(("armband", "camera", "ring"), False)
     issues, captures, attachments, derived = [], [], [], []
     ring_captures, ring_derived = [], []
@@ -403,6 +431,7 @@ def status(args):
     if any(item.get("raw_verified") and item.get("live_imu_samples", 0) > 0 for item in ring_captures):
         clocks["ring"] = "device_monotonic_us; batch-internal sample times nominal"
     return {"schema_version": 1, "episode": str(episode), "modality_present": present,
+            **acquisition,
             "missing_modalities": [name for name, found in present.items() if not found],
             "device_clock_source": clocks,
             "unknown_clock_modalities": [name for name, value in clocks.items() if value == "unknown"],
@@ -415,7 +444,7 @@ def status(args):
                         (["missing_modalities"] if not all(present.values()) else []) +
                         (["invalid_events"] if event_count != len(event_files) else []),
             "issues": issues,
-            "semantics": "presence and file integrity only; not signal validity or synchronization proof"}
+            "semantics": "presence and file integrity only; not signal validity, synchronization proof or training approval"}
 
 
 def ring_scan(args):
@@ -455,6 +484,9 @@ def parser():
         p.add_argument("--" + name, required=True)
     p.add_argument("--wear-side", choices=("left", "right", "bilateral", "unknown"), required=True)
     p.add_argument("--notes", default="")
+    p.add_argument("--purpose", choices=PURPOSES, default="engineering")
+    p.add_argument("--ring-mount", choices=RING_MOUNTS, default="unknown")
+    p.add_argument("--ring-power", choices=RING_POWERS, default="unknown")
     p.set_defaults(handler=create)
     p = commands.add_parser("mark", help="Record a host event; does not establish hardware sync")
     p.add_argument("--episode", type=Path, required=True)
@@ -491,7 +523,7 @@ def parser():
     p.add_argument("--timeout", type=float, default=10)
     p.add_argument("--replay-pages", type=int, default=0)
     p.set_defaults(handler=ring_capture)
-    p = commands.add_parser("ring-import", help="Archive complete v2 frames from raw_hex JSONL")
+    p = commands.add_parser("ring-import", help="Archive complete v2 frames from raw_hex or eRingWeb frame_hex JSONL")
     p.add_argument("--episode", type=Path, required=True)
     p.add_argument("--capture-id", required=True)
     p.add_argument("--file", type=Path, required=True)

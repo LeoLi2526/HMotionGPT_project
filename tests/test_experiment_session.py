@@ -29,11 +29,80 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(actual, code, err.getvalue())
         return json.loads(out.getvalue() if actual == 0 else err.getvalue() or out.getvalue())
 
-    def create(self, subject="subject_a", session="day1", trial="trial1"):
+    def create(self, subject="subject_a", session="day1", trial="trial1", **acquisition):
+        options = [arg for key, value in acquisition.items() for arg in ("--" + key.replace("_", "-"), value)]
         result = self.cli("create", "--root", self.root / "episodes", "--subject", subject,
                           "--session", session, "--trial", trial, "--task", "synthetic-test",
-                          "--wear-side", "left", "--consent-scope", "synthetic fixtures only")
+                          "--wear-side", "left", "--consent-scope", "synthetic fixtures only", *options)
         return Path(result["episode"])
+
+    def test_acquisition_defaults_are_engineering_and_unverified(self):
+        episode = self.create()
+        expected = {"purpose": "engineering", "ring_mount": "unknown",
+                    "ring_power": "unknown", "wear_calibration": "unverified"}
+        self.assertEqual(tool.read_json(episode / "episode.json")["acquisition_context"], expected)
+        status = self.cli("status", "--episode", episode)
+        self.assertEqual(status["acquisition_context"], expected)
+        self.assertEqual(status["data_use"], {"decision": "engineering_only", "training_eligible": False})
+
+    def test_acquisition_bare_board_overrides_research_for_all_power_modes(self):
+        for power in ("tethered", "battery", "unknown"):
+            with self.subTest(power=power):
+                episode = self.create(trial=power, purpose="research", ring_mount="bare_board", ring_power=power)
+                recorded = tool.read_json(episode / "episode.json")["acquisition_context"]
+                self.assertEqual(recorded, {"purpose": "research", "ring_mount": "bare_board",
+                                            "ring_power": power, "wear_calibration": "unverified"})
+                status = self.cli("status", "--episode", episode)
+                self.assertEqual(status["data_use"], {"decision": "engineering_only", "training_eligible": False})
+
+    def test_acquisition_worn_pilot_and_research_never_eligible_regardless_of_power(self):
+        for purpose in ("pilot", "research"):
+            for power in ("tethered", "battery", "unknown"):
+                with self.subTest(purpose=purpose, power=power):
+                    episode = self.create(trial=purpose + power, purpose=purpose, ring_mount="worn", ring_power=power)
+                    status = self.cli("status", "--episode", episode)
+                    self.assertEqual(status["acquisition_context"]["ring_power"], power)
+                    self.assertEqual(status["acquisition_context"]["wear_calibration"], "unverified")
+                    self.assertEqual(status["data_use"], {"decision": "pending_validation", "training_eligible": False})
+                    self.assertEqual(status["issues"], [])
+
+    def test_acquisition_legacy_missing_metadata_stays_unknown_and_readonly(self):
+        episode = self.create()
+        path = episode / "episode.json"
+        metadata = tool.read_json(path)
+        del metadata["acquisition_context"]
+        path.write_text(json.dumps(metadata), encoding="utf-8")
+        before = path.read_bytes()
+        status = self.cli("status", "--episode", episode)
+        self.assertEqual(status["acquisition_context"], {"purpose": "unknown", "ring_mount": "unknown",
+                                                        "ring_power": "unknown", "wear_calibration": "unverified"})
+        self.assertEqual(status["data_use"], {"decision": "pending_validation", "training_eligible": False})
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_acquisition_invalid_or_partial_context_cannot_grant_acceptance(self):
+        episode = self.create()
+        path = episode / "episode.json"
+        metadata = tool.read_json(path)
+        for context in (None, [], "research", {}, {"purpose": ["research"], "ring_mount": "invalid"},
+                        {"purpose": "research", "wear_calibration": "verified", "training_eligible": True}):
+            with self.subTest(context=context):
+                metadata["acquisition_context"] = context
+                metadata["data_use"] = {"decision": "accepted", "training_eligible": True}
+                path.write_text(json.dumps(metadata), encoding="utf-8")
+                status = self.cli("status", "--episode", episode)
+                self.assertEqual(status["acquisition_context"]["ring_mount"], "unknown")
+                self.assertEqual(status["acquisition_context"]["wear_calibration"], "unverified")
+                self.assertEqual(status["data_use"], {"decision": "pending_validation", "training_eligible": False})
+
+    def test_acquisition_cli_rejects_invalid_choices_without_creating_episode(self):
+        for option in ("--purpose", "--ring-mount", "--ring-power"):
+            with self.subTest(option=option), redirect_stderr(StringIO()):
+                with self.assertRaises(SystemExit) as error:
+                    tool.main(["create", "--root", str(self.root / "episodes"), "--subject", "s",
+                               "--session", "d", "--trial", "t", "--task", "test", "--wear-side", "unknown",
+                               "--consent-scope", "synthetic", option, "invalid"])
+                self.assertEqual(error.exception.code, 2)
+                self.assertFalse((self.root / "episodes").exists())
 
     def test_f0_multi_subject_session_isolation_and_no_overwrite(self):
         a = self.create()
@@ -268,6 +337,21 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(status["synchronization"], "unverified")
         self.assertEqual(status["event_count"], 1)
         self.assertEqual(status["derived"][0]["valid_rows"], 1)
+        self.assertEqual(status["data_use"], {"decision": "engineering_only", "training_eligible": False})
+        # Even complete files and an operator's calibration claim cannot grant acceptance.
+        path = episode / "episode.json"
+        metadata = tool.read_json(path)
+        metadata["acquisition_context"] = {"purpose": "research", "ring_mount": "worn",
+                                           "ring_power": "battery", "wear_calibration": "verified"}
+        path.write_text(json.dumps(metadata), encoding="utf-8")
+        status = self.cli("status", "--episode", episode)
+        self.assertEqual(status["missing_modalities"], [])
+        self.assertEqual(status["data_use"], {"decision": "pending_validation", "training_eligible": False})
+        del metadata["acquisition_context"]
+        path.write_text(json.dumps(metadata), encoding="utf-8")
+        status = self.cli("status", "--episode", episode)
+        self.assertEqual(status["missing_modalities"], [])
+        self.assertEqual(status["data_use"], {"decision": "pending_validation", "training_eligible": False})
         other = self.create(subject="subject_b")
         self.assertEqual(self.cli("status", "--episode", other)["missing_modalities"], ["armband", "camera", "ring"])
 

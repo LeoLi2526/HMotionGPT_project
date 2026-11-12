@@ -24,7 +24,7 @@
 
 BLE API采用 [BleakClient](https://bleak.readthedocs.io/en/latest/api/client.html) 的异步连接、配对、通知和响应式写入，以及 [BleakScanner](https://bleak.readthedocs.io/en/latest/api/scanner.html) 的服务过滤/设备发现。依赖安装成功不代表硬件连接成功。
 
-`ring-import` 输入为UTF-8 JSONL，每行至少有 `raw_hex`，表示一条完整的设备→主机v2应用帧（不含GATT分片头）。可以有整数 `host_utc_ns`、`host_monotonic_ns`；缺失时留空，不用导入时间补成历史接收时间。原件复制保存后再解析。主机请求不能当成设备响应导入，旧CSV也不自动猜测协议。
+`ring-import` 输入为UTF-8 JSONL，每行至少有 `raw_hex` 或 eRingWeb 1.0.6 导出的 `frame_hex`，表示一条完整的设备→主机v2应用帧（不含GATT分片头）。可以有整数 `host_utc_ns`、`host_monotonic_ns`；缺失时留空，不用导入时间补成历史接收时间。原件复制保存后再解析。主机请求不能当成设备响应导入，旧CSV也不自动猜测协议。
 
 ```powershell
 $episodePath = 'data/episodes/P001/20261109_PM01/T001'
@@ -82,3 +82,8 @@ $episodePath = 'data/episodes/P001/20261109_PM01/T001'
 ## 首次实机检查（2026-11-12）
 
 现有命令已成功扫描、连接和读取主板，固件报告2.1.5；15秒/30秒观察分别保存765/1515个IMU样本。传输完整性通过，但两段接近静止，动作响应未验证；批次时间相对标称周期有约-480微秒偏差，两个采集代分开处理。上位机eRingWeb1.0.6仅完成静态核查，未运行或验证其导出兼容。完整证据见[首次实采](../knowledge_base/devices/ering_n1_2026-11-12.md)，不将采样成功视为N2同步通过。
+
+
+## 裸板与上位机导出更新（2026-11-12）
+
+已实测 eRingWeb 1.0.6 的原帧/CSV 导出并接入导入入口；自动历史补传、缺失接收时间、原始量程回复及试次归属的限制见 [裸板工程采集流程](ERING_ENGINEERING_WORKFLOW.md)。当前戒指无外壳、有线连接，默认工程用途；臂环不可连接，轴向标定及三流对齐延期。批界残差改报 nominal_batch_boundary_mismatch，device_time_discontinuity 仅保留原始锚点回退含义；旧派生文件不覆盖。

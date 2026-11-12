@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import statistics
 import tempfile
 
 
@@ -249,7 +250,12 @@ class Recorder:
 
 
 def import_frames(source: Path, directory: Path) -> dict:
-    """Import JSONL full frames, preserving original bytes and missing host times."""
+    """Import project raw_hex or eRingWeb frame_hex exports without inventing times.
+
+    eRingWeb 1.0.6 exports persistent frames (including replay), not complete
+    receipt/configuration evidence. Decode the bytes; never trust JSON summaries
+    or infer ranges from another capture. The exact input is kept as source.jsonl.
+    """
     source = Path(source)
     recorder = Recorder(directory, {"source": str(source), "mode": "import", "evidence_kind": "unverified"})
     errors = []
@@ -262,10 +268,21 @@ def import_frames(source: Path, directory: Path) -> dict:
             for line_number, line in enumerate(incoming, 1):
                 try:
                     row = json.loads(line)
-                    if not isinstance(row, dict) or not isinstance(row.get("raw_hex"), str):
-                        raise ValueError("JSONL row requires a string raw_hex")
-                    recorder.accept(bytes.fromhex(row["raw_hex"]), row.get("host_utc_ns"),
-                                    row.get("host_monotonic_ns"), context=row.get("context", "import"))
+                    if not isinstance(row, dict):
+                        raise ValueError("JSONL row requires an object")
+                    key = "raw_hex" if "raw_hex" in row else "frame_hex"
+                    if not isinstance(row.get(key), str):
+                        raise ValueError("JSONL row requires a string raw_hex or frame_hex")
+                    raw = bytes.fromhex(row[key])
+                    if "raw_hex" in row and "frame_hex" in row:
+                        if not isinstance(row["frame_hex"], str) or raw != bytes.fromhex(row["frame_hex"]):
+                            raise ValueError("conflicting raw_hex and frame_hex")
+                    # Vendor export has no receive-time provenance. Do not adopt
+                    # arbitrary added fields as acquisition timestamps.
+                    vendor = key == "frame_hex"
+                    recorder.accept(raw, None if vendor else row.get("host_utc_ns"),
+                                    None if vendor else row.get("host_monotonic_ns"),
+                                    context="eringweb_export" if vendor else row.get("context", "import"))
                 except (ValueError, TypeError) as exc:
                     errors.append({"line_number": line_number, "error": str(exc)})
                     recorder.event("import_error", **errors[-1])
@@ -394,6 +411,8 @@ def _inspect_capture(directory):
         if frame["type"] not in PERSISTENT_TYPES:
             qc.add("unknown_persistent_type")
         if frame["type"] == 0x11:
+            if entry["receipt"].get("context") == "eringweb_export":
+                qc.add("vendor_archive_window_unverified")
             if (frame["capture_id"], frame["sample_config_id"]) not in configurations:
                 qc.add("missing_or_conflicting_sample_config")
             if entry["receipt"].get("host_utc_ns") is None or entry["receipt"].get("host_monotonic_ns") is None:
@@ -440,7 +459,83 @@ CSV_FIELDS = ["capture_id", "sequence", "sample_index", "ax_raw", "ay_raw", "az_
               "gx_raw", "gy_raw", "gz_raw", "first_sample_us", "period_us", "device_time_us",
               "host_utc_ns", "host_monotonic_ns",
               "sample_config_id", "calibration_version", "ax_g", "ay_g", "az_g", "gx_dps", "gy_dps",
-              "gz_dps", "device_utc_ns", "replay", "attribution", "context", "receipt_index"]
+              "gz_dps", "device_utc_ns", "replay", "attribution", "context", "receipt_index",
+              "batch_timestamp_us", "time_epoch", "device_time_basis", "nominal_boundary_delta_us"]
+
+
+class _TimingQC:
+    """Compare emitted IMU batches in sequence order, never host receipt order.
+
+    Epoch numbers are local to each capture_id in this derivation. Configuration
+    transitions (including A -> B -> A) and raw anchor regressions start a new
+    epoch. Residual statistics pool only within-epoch comparisons, not transitions.
+    No fit, reset diagnosis, loss estimate, or correction follows from a residual.
+    """
+
+    def __init__(self):
+        self.previous = {}
+        self.groups = {}
+        self.boundaries = []
+
+    def observe(self, frame, flags):
+        capture = frame["capture_id"]
+        config = frame["sample_config_id"]
+        decoded = frame["decoded"]
+        first, period = decoded["first_sample_us"], decoded["period_us"]
+        group = self.groups.setdefault((capture, config), {"deltas": [], "epochs": set(),
+                                                          "anchor_backwards_count": 0})
+        previous = self.previous.get(capture)
+        epoch, delta = 0, None
+        if previous is not None:
+            epoch = previous["epoch"]
+            reason = None
+            if config != previous["config"]:
+                reason = "sample_config_changed"
+            elif first < previous["first"]:
+                reason = "raw_batch_anchor_backwards"
+                group["anchor_backwards_count"] += 1
+                # Retain the legacy flag for observed anchor regression only.
+                flags.update(("device_time_discontinuity", "device_time_backwards"))
+            if reason:
+                epoch += 1
+                flags.add("time_epoch_boundary")
+                self.boundaries.append({
+                    "capture_id": capture, "sample_config_id": config, "time_epoch": epoch,
+                    "reason": reason, "sequence": frame["sequence"],
+                    "previous_sequence": previous["sequence"],
+                    "previous_sample_config_id": previous["config"],
+                    "previous_first_sample_us": previous["first"], "first_sample_us": first,
+                })
+            elif period > 0 and previous["period"] > 0:
+                delta = first - (previous["first"] + previous["count"] * previous["period"])
+                group["deltas"].append(delta)
+                if delta:
+                    flags.add("nominal_batch_boundary_mismatch")
+                if first < previous["first"] + (previous["count"] - 1) * previous["period"]:
+                    # Overlap with a reconstructed sample is not raw clock regression.
+                    flags.add("nominal_sample_time_overlap")
+        group["epochs"].add(epoch)
+        self.previous[capture] = {"epoch": epoch, "config": config, "first": first,
+                                  "period": period, "count": len(decoded["samples"]),
+                                  "sequence": frame["sequence"]}
+        if len(self.previous) > 1:
+            flags.add("multiple_capture_epochs")
+        return epoch, delta
+
+    def summary(self):
+        result = []
+        for (capture, config), group in sorted(self.groups.items()):
+            deltas = group["deltas"]
+            result.append({
+                "capture_id": capture, "sample_config_id": config,
+                "time_epochs": sorted(group["epochs"]),
+                "count": len(deltas), "nonzero_count": sum(d != 0 for d in deltas),
+                "min_us": min(deltas) if deltas else None,
+                "max_us": max(deltas) if deltas else None,
+                "median_us": statistics.median(deltas) if deltas else None,
+                "anchor_backwards_count": group["anchor_backwards_count"],
+            })
+        return result
 
 
 def derive(directory: Path, output: Path, include_replay: bool = False) -> dict:
@@ -451,6 +546,9 @@ def derive(directory: Path, output: Path, include_replay: bool = False) -> dict:
     A conflicting persistent key is quarantined in its entirety, never guessed.
     Invalid nominal periods retain raw values, but leave derived times empty and
     make the derivation unsuccessful. Incomplete captures still retain raw rows.
+    Batch anchors stay verbatim; per-sample times are nominal reconstructions.
+    device_time_discontinuity now means raw batch anchor regression, not a
+    nonzero nominal boundary residual. Neither observation proves a device reset.
     """
     directory, output = Path(directory), Path(output)
     if output.resolve() == directory.resolve() or directory.resolve() in output.resolve().parents:
@@ -460,7 +558,7 @@ def derive(directory: Path, output: Path, include_replay: bool = False) -> dict:
     configurations, _ = _configurations(index)
     flags = set(report["qc_flags"])
     emitted = excluded = 0
-    previous_end = {}
+    timing = _TimingQC()
     with (output / "imu.csv").open("x", encoding="utf-8", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=CSV_FIELDS)
         writer.writeheader()
@@ -485,21 +583,19 @@ def derive(directory: Path, output: Path, include_replay: bool = False) -> dict:
                 flags.add("invalid_nominal_period")
             if config and config.get("imu_hz", 0) > 0 and abs(period * config["imu_hz"] - 1000000) > config["imu_hz"]:
                 flags.add("config_period_mismatch")
-            if time_available:
-                if config_key in previous_end and first != previous_end[config_key]:
-                    flags.add("device_time_discontinuity")
-                previous_end[config_key] = first + len(samples) * period
-            else:
-                # There is no nominal endpoint to compare against the next batch.
-                previous_end.pop(config_key, None)
+            epoch, boundary_delta = timing.observe(frame, flags)
             for sample_index, sample in enumerate(samples):
                 row = dict(zip(("ax_raw", "ay_raw", "az_raw", "gx_raw", "gy_raw", "gz_raw"), sample))
                 row.update(capture_id=key[0], sequence=key[1], sample_index=sample_index,
                            first_sample_us=first, period_us=period,
                            device_time_us=first + sample_index * period if time_available else None,
+                           batch_timestamp_us=frame["timestamp_us"], time_epoch=epoch,
+                           device_time_basis="nominal_reconstruction" if time_available else "unavailable_invalid_period",
+                           nominal_boundary_delta_us=boundary_delta,
                            host_utc_ns=receipt.get("host_utc_ns"), host_monotonic_ns=receipt.get("host_monotonic_ns"),
                            sample_config_id=frame["sample_config_id"], calibration_version=frame["calibration_version"],
-                           device_utc_ns=None, replay=int(replay), attribution="unknown" if replay else "current_capture_unverified",
+                           device_utc_ns=None, replay=int(replay),
+                           attribution="unknown" if replay or receipt.get("context") == "eringweb_export" else "current_capture_unverified",
                            context=receipt.get("context"), receipt_index=receipt.get("receipt_index"))
                 if config:
                     for axis, raw in zip(("ax", "ay", "az"), sample[:3]):
@@ -519,7 +615,17 @@ def derive(directory: Path, output: Path, include_replay: bool = False) -> dict:
               "excluded_replay_samples": excluded, "qc_flags": sorted(flags),
               "source_manifest": _hash(directory / "capture.json") if (directory / "capture.json").is_file() else None,
               "files": {"imu.csv": _hash(output / "imu.csv")},
-              "time_basis": "first_sample_us + sample_index * period_us (nominal estimate; empty if period_us <= 0)",
+              "time_basis": "first_sample_us + sample_index * period_us (nominal reconstruction, not per-sample measured time; empty if period_us <= 0)",
+              "batch_boundary_summary": timing.summary(),
+              "time_epoch_boundaries": timing.boundaries,
+              "timing_qc_basis": {
+                  "boundary_delta_us": "current first_sample_us - (previous first_sample_us + previous sample count * previous period_us)",
+                  "scope": "emitted IMU batches in sequence order; same capture_id and contiguous time_epoch; both periods positive",
+                  "summary": "per capture_id/sample_config_id; pool within-epoch deltas only; count includes zero; empty statistics are null",
+                  "epochs": "capture_id isolates generations; local time_epoch increments on config transition or raw batch anchor regression",
+                  "device_time_discontinuity": "legacy flag restricted to raw batch anchor regression; not nominal boundary mismatch",
+                  "interpretation": "residuals do not establish packet loss or device reset; no clock fitting, correction, or UTC alignment",
+              },
               "conversion_basis": "matching capture_id and sample_config_id; raw * range / 32768",
               "exit_code": 0 if status == "completed" else 1}
     _atomic_json(output / "qc.json", result)

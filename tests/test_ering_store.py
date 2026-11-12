@@ -37,6 +37,35 @@ def config(capture_id=2, config_id=1, accel=4, gyro=500, flags=1):
 
 
 class StorageTests(unittest.TestCase):
+    def test_eringweb_export_keeps_original_and_excludes_old_replay(self):
+        source = self.root / "web.jsonl"
+        rows = [dict(frame_hex=frame(capture_id=155).hex(), capture_id="999",
+                     host_utc_ns=123, host_monotonic_ns=456),
+                dict(frame_hex=frame(capture_id=149, flags=2, request_id=1).hex())]
+        source.write_text("\n".join(json.dumps(r) for r in rows), encoding="utf-8")
+        result = store.import_frames(source, self.root / "web")
+        self.assertEqual(result["exit_code"], 0)
+        self.assertEqual((self.root / "web/source.jsonl").read_bytes(), source.read_bytes())
+        qc = store.derive(self.root / "web", self.root / "derived")
+        self.assertEqual(qc["imu_samples"], 1)
+        self.assertEqual(qc["excluded_replay_samples"], 1)
+        row = self.read_csv(self.root / "derived")[0]
+        self.assertEqual(row["capture_id"], "155")
+        self.assertEqual(row["host_utc_ns"], "")
+        self.assertEqual(row["device_utc_ns"], "")
+        self.assertEqual(row["ax_g"], "")
+        self.assertEqual(row["context"], "eringweb_export")
+        self.assertIn("missing_or_conflicting_sample_config", qc["qc_flags"])
+
+    def test_conflicting_export_hex_fields_are_rejected_and_preserved(self):
+        source = self.root / "ambiguous.jsonl"
+        source.write_text(json.dumps(dict(raw_hex=frame().hex(),
+                                         frame_hex=frame(capture_id=3).hex())), encoding="utf-8")
+        result = store.import_frames(source, self.root / "web")
+        self.assertEqual(result["exit_code"], 1)
+        self.assertEqual(result["imu_samples"], 0)
+        self.assertEqual((self.root / "web/source.jsonl").read_bytes(), source.read_bytes())
+
     def setUp(self):
         self.temp = TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -92,6 +121,122 @@ class StorageTests(unittest.TestCase):
     def read_csv(self, output):
         with (output / "imu.csv").open(newline="", encoding="utf-8") as stream:
             return list(csv.DictReader(stream))
+
+    def timing_batch(self, recorder, sequence, first, capture_id=2, config_id=1,
+                     period=20000, count=15):
+        payload = struct.pack("<QIBBH", first, period, count, 0, 0)
+        payload += struct.pack("<6h", -32768, 0, 16384, 32767, -10, 100) * count
+        recorder.accept(frame(sequence=sequence, timestamp_us=first, payload=payload,
+                              capture_id=capture_id, config_id=config_id), 111, 222)
+
+    def test_stable_negative_boundary_residual_is_not_clock_backwards(self):
+        recorder = self.recorder()
+        anchors = [1000000, 1299520, 1599104, 1898560]
+        for seq, first in enumerate(anchors, 1):
+            self.timing_batch(recorder, seq, first)
+        recorder.finish("completed")
+        recorder.close()
+        before = {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in recorder.directory.iterdir()}
+        result = store.derive(recorder.directory, self.root / "derived")
+        self.assertEqual(result["batch_boundary_summary"], [{
+            "capture_id": 2, "sample_config_id": 1, "time_epochs": [0],
+            "count": 3, "nonzero_count": 3, "min_us": -544, "max_us": -416,
+            "median_us": -480, "anchor_backwards_count": 0,
+        }])
+        self.assertIn("nominal_batch_boundary_mismatch", result["qc_flags"])
+        for flag in ("device_time_discontinuity", "device_time_backwards",
+                     "device_reported_gap", "time_epoch_boundary", "nominal_sample_time_overlap"):
+            self.assertNotIn(flag, result["qc_flags"])
+        self.assertEqual(result["time_epoch_boundaries"], [])
+        self.assertEqual(result["exit_code"], 0)
+        rows = self.read_csv(self.root / "derived")
+        self.assertEqual([int(r["first_sample_us"]) for r in rows[::15]], anchors)
+        self.assertEqual([r["nominal_boundary_delta_us"] for r in rows[::15]], ["", "-480", "-416", "-544"])
+        self.assertEqual([int(r["device_time_us"]) for r in rows],
+                         [first + i * 20000 for first in anchors for i in range(15)])
+        self.assertTrue(all(r["batch_timestamp_us"] == r["first_sample_us"] for r in rows))
+        self.assertTrue(all(r["device_time_basis"] == "nominal_reconstruction" for r in rows))
+        self.assertTrue(all(r["device_utc_ns"] == "" for r in rows))
+        self.assertEqual(result["evidence_kind"], "synthetic")
+        self.assertFalse(result["hardware_verified"])
+        self.assertEqual(result["synchronization"], "unverified")
+        self.assertIn("nominal_device_sample_times", result["qc_flags"])
+        self.assertEqual(json.loads((self.root / "derived/qc.json").read_text())["batch_boundary_summary"],
+                         result["batch_boundary_summary"])
+        self.assertEqual(before, {p.name: (p.read_bytes(), p.stat().st_mtime_ns) for p in recorder.directory.iterdir()})
+
+    def test_raw_anchor_regression_starts_epoch_without_polluting_residuals(self):
+        recorder = self.recorder()
+        # Receive out of order: persistent sequence, not arrival, defines order.
+        for seq, first in ((3, 500000), (1, 1000000), (4, 799520), (2, 1299520)):
+            self.timing_batch(recorder, seq, first)
+        recorder.finish("completed")
+        result = store.derive(recorder.directory, self.root / "derived")
+        self.assertIn("device_time_backwards", result["qc_flags"])
+        self.assertIn("device_time_discontinuity", result["qc_flags"])
+        summary = result["batch_boundary_summary"][0]
+        self.assertEqual(summary["count"], 2)
+        self.assertEqual(summary["min_us"], -480)
+        self.assertEqual(summary["max_us"], -480)
+        self.assertEqual(summary["anchor_backwards_count"], 1)
+        self.assertEqual(summary["time_epochs"], [0, 1])
+        boundary = result["time_epoch_boundaries"][0]
+        self.assertEqual(boundary["reason"], "raw_batch_anchor_backwards")
+        self.assertEqual(boundary["previous_first_sample_us"], 1299520)
+        self.assertEqual(boundary["first_sample_us"], 500000)
+        rows = self.read_csv(self.root / "derived")[::15]
+        self.assertEqual([r["time_epoch"] for r in rows], ["0", "0", "1", "1"])
+        self.assertEqual([r["nominal_boundary_delta_us"] for r in rows], ["", "-480", "", "-480"])
+
+    def test_capture_and_config_epochs_are_isolated_even_when_config_returns(self):
+        recorder = self.recorder()
+        for seq, first, cid in ((1, 1000000, 1), (2, 1299520, 1),
+                                (3, 100, 2), (4, 1000, 1), (5, 301000, 1)):
+            self.timing_batch(recorder, seq, first, config_id=cid)
+        self.timing_batch(recorder, 1, 10, capture_id=3)
+        recorder.finish("completed")
+        result = store.derive(recorder.directory, self.root / "derived")
+        summaries = result["batch_boundary_summary"]
+        self.assertEqual([(s["capture_id"], s["sample_config_id"], s["count"]) for s in summaries],
+                         [(2, 1, 2), (2, 2, 0), (3, 1, 0)])
+        self.assertEqual(summaries[0]["median_us"], -240)
+        self.assertEqual(summaries[0]["nonzero_count"], 1)
+        self.assertEqual(summaries[0]["time_epochs"], [0, 2])
+        self.assertIsNone(summaries[1]["median_us"])
+        self.assertIsNone(summaries[2]["min_us"])
+        self.assertIsNone(summaries[2]["max_us"])
+        self.assertIn("multiple_capture_epochs", result["qc_flags"])
+        self.assertNotIn("device_time_backwards", result["qc_flags"])
+        self.assertEqual([b["reason"] for b in result["time_epoch_boundaries"]],
+                         ["sample_config_changed", "sample_config_changed"])
+        rows = self.read_csv(self.root / "derived")[::15]
+        self.assertEqual([r["time_epoch"] for r in rows], ["0", "0", "1", "2", "2", "0"])
+        self.assertEqual([r["nominal_boundary_delta_us"] for r in rows], ["", "-480", "", "", "0", ""])
+
+    def test_nominal_overlap_is_distinct_from_raw_anchor_regression(self):
+        recorder = self.recorder()
+        self.timing_batch(recorder, 1, 1000000)
+        self.timing_batch(recorder, 2, 1100000)
+        recorder.finish("completed")
+        result = store.derive(recorder.directory, self.root / "derived")
+        self.assertIn("nominal_sample_time_overlap", result["qc_flags"])
+        self.assertNotIn("device_time_backwards", result["qc_flags"])
+        self.assertNotIn("device_time_discontinuity", result["qc_flags"])
+        self.assertEqual(result["batch_boundary_summary"][0]["min_us"], -200000)
+
+    def test_invalid_period_breaks_nominal_comparisons_but_not_anchor_checks(self):
+        recorder = self.recorder()
+        for seq, first, period in ((1, 1000000, 20000), (2, 1299520, 0),
+                                    (3, 1599040, 20000), (4, 1898560, 20000)):
+            self.timing_batch(recorder, seq, first, period=period)
+        recorder.finish("completed")
+        result = store.derive(recorder.directory, self.root / "derived")
+        self.assertEqual(result["batch_boundary_summary"][0]["count"], 1)
+        self.assertEqual(result["batch_boundary_summary"][0]["median_us"], -480)
+        self.assertEqual(result["exit_code"], 1)
+        rows = self.read_csv(self.root / "derived")[::15]
+        self.assertEqual(rows[1]["device_time_basis"], "unavailable_invalid_period")
+        self.assertEqual(rows[1]["device_time_us"], "")
 
     def test_replay_then_live_prefers_live_and_counts_all_wire_receipts(self):
         recorder = self.recorder()
