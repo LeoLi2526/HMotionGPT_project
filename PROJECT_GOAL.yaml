@@ -28,7 +28,7 @@ data_path:
     ring:
       signal: 手指运动 IMU
       device: 自制eRing（用户提供nRF54L15/ICM45686硬件说明和BLE v2协议）
-      hardware_status: 已通过BLE读取主板固件2.1.5及硬件修订字段2，完成两段实时六轴采集共2280样本；批次时间偏离标称模型、两段间采集代变化及转动响应待进一步核实，三流同步未验证
+      hardware_status: 已通过BLE读取主板固件2.1.5及硬件修订字段2，完成三段实时六轴采集共4803样本，第三段观察到明显运动响应；批次时间偏离标称模型及早期采集代变化仍待核实，轴向标定和三流同步未验证
     armband:
       signal: 前臂 8 通道 EMG
       auxiliary_signal: 前臂 6 轴惯性
