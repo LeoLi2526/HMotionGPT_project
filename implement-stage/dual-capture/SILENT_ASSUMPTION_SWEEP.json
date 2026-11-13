@@ -1,0 +1,248 @@
+{
+  "schema_version": 1,
+  "audit_kind": "implementation_and_silent_assumption_sweep",
+  "review_status": "same-family/provisional",
+  "review_model": {
+    "reviewer": "Native Codex",
+    "independence": "same-family",
+    "assessment_status": "provisional",
+    "model_family_from_runtime_instructions": "GPT-6",
+    "actual_serving_model_id": null,
+    "actual_reasoning_tier": null,
+    "unknowns": "运行时未暴露实际服务模型标识和推理档位；未将项目配置中的首选型号当作实际型号。"
+  },
+  "project_goal_alignment": "PROJECT_GOAL.yaml current_phase：验证原始流可导出、可重放和接收时间证据边界；不将工程双采通过当作N2同步精度证据。",
+  "rounds": [
+    {
+      "round": 1,
+      "source": "本聊天首轮最终回复的结构化记录；保留首轮发现，不将本轮修复追溯改写为首轮已通过。",
+      "baseline_commit": "054ecd5dd4ba9ee6f2a7577c33b00b519fc04dda",
+      "reviewed_head": null,
+      "review": {
+        "reviewer": "Native Codex",
+        "independence": "same-family",
+        "assessment_status": "provisional",
+        "model_family_from_runtime_instructions": "GPT-6",
+        "actual_serving_model_id": null,
+        "actual_reasoning_tier": null,
+        "unknowns": "运行时未暴露实际服务模型标识和推理档位；未将项目配置中的首选型号当作实际型号。"
+      },
+      "undeclared": [
+        {
+          "id": "R1-U1",
+          "site": "scripts/dual_capture.py:97-100 (首轮行号)",
+          "decision": "配置冲突、配置缺失及设备报告gap等ring QC提示未进入失败门槛。",
+          "why_it_matters": "解析器可在raw_verified=true、exit_code=0时返回这些提示，双采集仍可能通过；A08未披露此例外。",
+          "class": "semantic"
+        },
+        {
+          "id": "R1-U2",
+          "site": "scripts/dual_capture.py:93-96 (首轮行号)",
+          "decision": "忽略fragment_count/fragments_present，允许未终止臂环尾片段。",
+          "why_it_matters": "原始片段保留但不进入CSV，接受边界损失的策略当时未声明。",
+          "class": "semantic"
+        },
+        {
+          "id": "R1-U3",
+          "site": "scripts/dual_capture.py:15-18,154-173 (首轮行号)",
+          "decision": "inspect仅生成状态报告，没有公开的既有试次时间轴重新处理命令。",
+          "why_it_matters": "BUILD_NOTE的F0重新解析入口描述超出当时公开CLI能力。",
+          "class": "interface"
+        }
+      ],
+      "stale_rows": [
+        {
+          "id": "R1-S1",
+          "site": "implement-stage/dual-capture/BUILD_NOTE.md:5,10",
+          "row": "F0",
+          "issue": "表格写待执行，附注称已执行；inspect实际只是状态/完整性检查。"
+        },
+        {
+          "id": "R1-S2",
+          "site": "implement-stage/dual-capture/ASSUMPTIONS.md:8",
+          "row": "A03",
+          "issue": "要求佩戴状态显式输入，但直接CLI允许默认unknown。"
+        }
+      ],
+      "semantic_undeclared": 2,
+      "verdict": "gaps",
+      "bugs": [
+        {
+          "id": "B1",
+          "priority": "P2",
+          "site": "scripts/dual_capture.py:97-100 (首轮行号)",
+          "title": "配置冲突可以通过工程质量门槛",
+          "evidence": "内存报告含conflicting_sample_config、missing_or_conflicting_sample_config且其余条件通过时，quality_issues返回[]；解析器配置冲突与persistent conflicting_keys分开报告。",
+          "impact": "可能engineering_capture_ok=true且对应物理量转换缺少配置。"
+        },
+        {
+          "id": "B2",
+          "priority": "P2",
+          "site": "scripts/dual_capture.py:69-84 (首轮行号)",
+          "title": "第二次中断可以提前退出子进程清理",
+          "evidence": "内存替身在监督循环和第一个子进程wait分别抛出KeyboardInterrupt；第二个子进程没有收到停止调用，四个日志均未显式关闭。",
+          "impact": "剩余自有采集进程可能仍运行；record未取得监督结果，缺少后续失败报告。"
+        },
+        {
+          "id": "B3",
+          "priority": "P2",
+          "site": "scripts/dual_capture.py:141-150,189-191 (首轮行号)",
+          "title": "record后处理取消缺少最终失败记录",
+          "evidence": "process_episode抛出KeyboardInterrupt时仅写request.json和completed=true的capture_result.json，没有result.json。",
+          "impact": "原始采集阶段成功与整次执行取消未被持久区分。"
+        }
+      ],
+      "validation": {
+        "offline_tests_passed": 21,
+        "mocked_checks": "首轮QC门槛与两条取消路径的内存复现。",
+        "live_device_access": false,
+        "repository_files_written": []
+      },
+      "scope_note": "首轮期间出现了向导及cmd新增文件，均已读取；首轮不是固定提交快照。"
+    },
+    {
+      "round": 2,
+      "review_date": "2026-11-13",
+      "baseline_commit": "054ecd5dd4ba9ee6f2a7577c33b00b519fc04dda",
+      "reviewed_head": "bb095b64fa9cce8ace1bc93ada3a9e96b59be884",
+      "review": {
+        "reviewer": "Native Codex",
+        "independence": "same-family",
+        "assessment_status": "provisional",
+        "model_family_from_runtime_instructions": "GPT-6",
+        "actual_serving_model_id": null,
+        "actual_reasoning_tier": null,
+        "unknowns": "运行时未暴露实际服务模型标识和推理档位；未将项目配置中的首选型号当作实际型号。"
+      },
+      "undeclared": [
+        {
+          "id": "R2-U1",
+          "site": "E:/HMotionGPT_project/scripts/dual_capture.py:114-116",
+          "decision": "config_period_mismatch和batch_timestamp_mismatch仍被当作非致命提示。",
+          "why_it_matters": "这两项分别表示配置频率与批内周期不一致，以及帧时间戳与first_sample_us不一致；不是A11列出的已解释标称批边界偏差。现有解析器会产生这些标记且仍可exit_code=0，quality_issues未拦截，与A11声明的非致命范围不一致。",
+          "class": "semantic"
+        }
+      ],
+      "stale_rows": [
+        {
+          "site": "E:/HMotionGPT_project/implement-stage/dual-capture/ASSUMPTIONS.md:16",
+          "row": "A11",
+          "issue": "声称只允许已解释的标称批边界偏差、未知UTC及未验证同步作为非致命提示，但实现还允许config_period_mismatch和batch_timestamp_mismatch。对应R2-U1/R2-B1，不是额外独立缺陷。"
+        },
+        {
+          "site": "E:/HMotionGPT_project/implement-stage/dual-capture/BUILD_NOTE.md:5-6,10-11",
+          "row": "F0/F1",
+          "issue": "表格仍全部标待执行，附注已有F0执行和F1测试记录；本轮也实际通过23项双采集测试。F2最终重采尚未完成，不能据这些离线结果标为整体通过。"
+        }
+      ],
+      "semantic_undeclared": 1,
+      "verdict": "gaps",
+      "bugs": [
+        {
+          "id": "R2-B1",
+          "priority": "P2",
+          "site": "E:/HMotionGPT_project/scripts/dual_capture.py:114-116",
+          "title": "A11未允许的两种时间/配置矛盾仍可通过工程质量门槛",
+          "trigger": "ring报告带config_period_mismatch或batch_timestamp_mismatch，其余退出状态、原始完整性、样本和接收时间轴条件通过。",
+          "evidence": "直接读取ering_store.py:579-585确认两标记的生成条件；609-630仅对invalid_nominal_period额外改变derive状态。内存复现中分别注入两标记，quality_issues均返回[]。同一复现确认新增五项fatal_ring_flags现在均正确返回失败项。",
+          "impact": "在其他条件满足时record可输出engineering_capture_ok=true，尽管样本时间字段内部存在A11未批准接受的矛盾。这是工程质量策略不一致，不是证明硬件实际出现该问题，也不是同步认证。",
+          "suggested_fix": "明确决定这两项应失败还是可带告警接受，并使门槛、A11和测试保持一致。"
+        },
+        {
+          "id": "R2-B2",
+          "priority": "P2",
+          "site": "E:/HMotionGPT_project/scripts/dual_capture.py:173-183,225-227",
+          "title": "新增process命令取消时仍缺少本次处理的持久失败报告",
+          "trigger": "运行process --episode ... --derive-id 新ID，在process_episode内部收到Ctrl+C。",
+          "evidence": "reprocess没有record在160-163行新增的取消处理。process_episode在两个处理块只捕获Exception，不捕获KeyboardInterrupt；其processing.json写入位于末尾。对公开CLI使用内存替身令process_episode抛出KeyboardInterrupt，得到exit_code=1、stderr=KeyboardInterrupt、失败报告写入次数为0。",
+          "impact": "新derive目录可能只有部分CSV或QC而没有processing.json和取消原因；原采集判定按A13保持不变，但新一次处理的失败记录不满足A05。未声称原始数据被删除或覆盖。",
+          "suggested_fix": "为新derive-id保存本次处理取消/失败结果，继续保留原采集判定与原始文件。"
+        }
+      ],
+      "first_round_resolution": [
+        {
+          "id": "B1",
+          "status": "fixed_for_reported_flags",
+          "evidence": "当前114-116行拦截配置冲突/缺失及设备报告gap；测试与内存复现通过。另有R2-B1所列不同标记的策略缺口。"
+        },
+        {
+          "id": "B2",
+          "status": "fixed_for_reported_trigger",
+          "evidence": "清理时屏蔽重复SIGINT/SIGBREAK并处理wait中断；test_repeated_interrupt_reaps_all_children通过。"
+        },
+        {
+          "id": "B3",
+          "status": "fixed_for_record",
+          "evidence": "record捕获process_episode的Exception/KeyboardInterrupt并写最终失败结果；test_postprocessing_cancel_saves_overall_failure通过。新增process路径见R2-B2。"
+        },
+        {
+          "id": "R1-U2",
+          "status": "declared",
+          "evidence": "A12声明尾片段和严格定位的首行边界例外。"
+        },
+        {
+          "id": "R1-U3",
+          "status": "resolved_with_declared_scope",
+          "evidence": "已新增process子命令；A13明确仅限原单主机入口试次、新derive-id且不改原采集判定。"
+        },
+        {
+          "id": "R1-S2",
+          "status": "corrected",
+          "evidence": "A03区分向导显式询问与CLI默认unknown。"
+        },
+        {
+          "id": "R1-S1",
+          "status": "still_stale",
+          "evidence": "BUILD_NOTE的F0表格与附注仍不一致。"
+        }
+      ],
+      "validation": {
+        "offline_tests": {
+          "command": "python -B -m unittest discover -s tests -p test_dual*.py -v",
+          "passed": 23,
+          "failed": 0,
+          "skipped": 0,
+          "includes_saved_trial_readonly_check": true
+        },
+        "additional_checks": "仅使用内存替身验证QC标记及公开process CLI取消路径；未新增测试文件。",
+        "direct_reads": [
+          "PROJECT_GOAL.yaml",
+          "scripts/dual_capture.py",
+          "scripts/dual_timeline.py",
+          "scripts/dual_capture_wizard.py",
+          "start_dual_capture.cmd",
+          "tests/test_dual_capture.py",
+          "tests/test_dual_timeline.py",
+          "implement-stage/dual-capture/SPEC.md",
+          "implement-stage/dual-capture/ASSUMPTIONS.md",
+          "implement-stage/dual-capture/BUILD_NOTE.md",
+          "docs/DUAL_CAPTURE_GUIDE.md",
+          "相关experiment_session/ering_store/ering_protocol接口"
+        ],
+        "live_device_access": false,
+        "wizard_executed": false,
+        "test_output_scope": "既有离线测试在系统临时目录生成并清理输出；禁用字节码生成，未改项目数据或测试文件。",
+        "initial_working_tree": "clean",
+        "only_authorized_repository_write": "implement-stage/dual-capture/SILENT_ASSUMPTION_SWEEP.json",
+        "further_review_rounds_run": 0,
+        "end_of_review_concurrent_changes": {
+          "observation": "初始工作树干净，结束时下列文件出现其他协作者的变更；审阅者没有写入这些文件，也未开始额外审阅轮次。",
+          "paths": [
+            "PROJECT_GOAL.yaml",
+            "PROJECT_HANDOFF.md",
+            "docs/DUAL_CAPTURE_GUIDE.md",
+            "implement-stage/dual-capture/BUILD_NOTE.md",
+            "refine-logs/EXPERIMENT_TRACKER.md",
+            "knowledge_base/devices/dual_platform_2026-11-13.md"
+          ],
+          "scope_limit": "源码/测试/ASSUMPTIONS未在最终git状态中显示变更。指南与构建表的发现适用于本轮实际读取的版本；并发更新未重新审阅。"
+        }
+      },
+      "synchronization_assessment": "实现和指南继续明确synchronization=unverified；未发现把接收重叠直接认证为设备采样同步的路径。本轮缺陷针对工程质量门槛和处理取消记录。",
+      "limitations": "未验证实际串口、BLE、设备采样行为、硬件同步或新增入口实机重采；构建附注的83项戒指回归、26项会话回归及实机结果未在本轮重新执行或认证。 收尾时存在其他协作者的并发文档修改，指南与构建表结论限于本轮读取版本，未认证其随后内容。"
+    }
+  ],
+  "latest_verdict": "gaps",
+  "latest_round": 2,
+  "modification_boundary": "仅写入本文件；不实施修复，不使用设备，不增加审阅轮次。"
+}

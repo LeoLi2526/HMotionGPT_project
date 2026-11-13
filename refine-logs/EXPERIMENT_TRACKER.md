@@ -41,3 +41,5 @@
 
 
 **戒指调频接口实测（2026-11-13）**：用户转述开发者确认现有主板可实现50–200Hz并授权调试。当前固件2.1.5读配置正常，但按旧协议将50Hz配置逐字节原样写回即返回UNSUPPORTED(code1/origin3/detail0)，回查配置未变；100/200Hz因此未请求，不能声称高频验收或硬件不支持。后续12秒独立采集615样本、0坏帧/重复，period_us仍20000；连接释放。新增有界探测工具与5项测试，戒指回归共83项通过。证据见knowledge_base/devices/ering_rate_probe_2026-11-13.md及DEVICECHECK/20261113_RING_RATE/T001。当前等待开发者提供具体设置接口或匹配固件；N1 RUNNING、N2未通过。
+
+**单入口双设备工程平台（2026-11-13）**：新增start_dual_capture.cmd及dual_capture.py，统一试次、并行接收、原始校验和主机接收时间轴。最终T003臂环3014行、戒指765样本，接收范围重叠14.984秒，工程检查通过；失败T001及边界修订T002原证据保留。详见docs/DUAL_CAPTURE_GUIDE.md及knowledge_base/devices/dual_platform_2026-11-13.md。24项双采测试、83项戒指回归和26项会话回归通过。同步误差未知，N1 RUNNING，N2未通过。
